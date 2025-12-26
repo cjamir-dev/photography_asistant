@@ -98,10 +98,10 @@
 
   function createProduct({ name, price, description, imageDataUrl }) {
     const cleanName = String(name ?? '').trim()
-    if (!cleanName) return { ok: false, error: 'نام محصول الزامی است' }
+    if (!cleanName) return { ok: false, error: 'errorProductRequired' }
 
     const cleanPrice = parseMoney(price)
-    if (cleanPrice <= 0) return { ok: false, error: 'قیمت باید بزرگ‌تر از صفر باشد' }
+    if (cleanPrice <= 0) return { ok: false, error: 'errorPriceRequired' }
 
     return {
       ok: true,
@@ -125,8 +125,8 @@
     if ('description' in patch) next.description = String(patch.description ?? '').trim()
     if ('imageDataUrl' in patch) next.imageDataUrl = String(patch.imageDataUrl ?? '')
 
-    if (!next.name) return { ok: false, error: 'نام محصول الزامی است' }
-    if (!(next.price > 0)) return { ok: false, error: 'قیمت باید بزرگ‌تر از صفر باشد' }
+    if (!next.name) return { ok: false, error: 'errorProductRequired' }
+    if (!(next.price > 0)) return { ok: false, error: 'errorPriceRequired' }
 
     next.updatedAt = nowIso()
 
@@ -151,8 +151,8 @@
     const ln = String(lastName ?? '').trim()
     const ph = normalizeIranMobile(phone)
 
-    if (!ln) return { ok: false, error: 'نام خانوادگی الزامی است' }
-    if (!isValidIranMobile(ph)) return { ok: false, error: 'شماره موبایل معتبر نیست (مثال: 09123456789)' }
+    if (!ln) return { ok: false, error: 'errorLastNameRequired' }
+    if (!isValidIranMobile(ph)) return { ok: false, error: 'errorPhoneInvalid' }
 
     const next = clone(draft)
     next.customer.lastName = ln
@@ -215,12 +215,12 @@
     const ln = String(draft?.customer?.lastName ?? '').trim()
     const ph = String(draft?.customer?.phone ?? '').trim()
 
-    if (!ln) return { ok: false, error: 'نام خانوادگی الزامی است' }
-    if (!isValidIranMobile(ph)) return { ok: false, error: 'شماره موبایل معتبر نیست' }
-    if (!Array.isArray(draft.items) || draft.items.length === 0) return { ok: false, error: 'حداقل یک محصول به سبد اضافه کنید' }
+    if (!ln) return { ok: false, error: 'errorLastNameRequired' }
+    if (!isValidIranMobile(ph)) return { ok: false, error: 'errorPhoneInvalid' }
+    if (!Array.isArray(draft.items) || draft.items.length === 0) return { ok: false, error: 'errorCartEmpty' }
 
     const final = recomputeOrder(draft)
-    if (!(final.totalAmount > 0)) return { ok: false, error: 'مبلغ کل معتبر نیست' }
+    if (!(final.totalAmount > 0)) return { ok: false, error: 'errorPriceRequired' }
 
     return { ok: true, order: final }
   }
@@ -258,6 +258,26 @@
     })
   }
 
+  function initI18n() {
+    if (!window.i18n) return
+    
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n')
+      const text = window.i18n.t(key)
+      if (text && text !== key) {
+        el.textContent = text
+      }
+    })
+    
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+      const key = el.getAttribute('data-i18n-placeholder')
+      const text = window.i18n.t(key)
+      if (text && text !== key) {
+        el.placeholder = text
+      }
+    })
+  }
+
   window.PhotoTools = {
     storage: {
       loadProducts,
@@ -289,8 +309,15 @@
       setText,
       setHidden,
       escapeHtml,
-      readFileAsDataUrl
+      readFileAsDataUrl,
+      initI18n
     }
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initI18n)
+  } else {
+    initI18n()
   }
 })()
 

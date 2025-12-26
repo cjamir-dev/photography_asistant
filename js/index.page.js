@@ -11,6 +11,7 @@ const {
   parseQty
 } = logic
 const { $, setText, setHidden, escapeHtml } = ui
+const t = window.i18n?.t || ((k) => k)
 
 const els = {
   searchPhone: $('#searchPhone'),
@@ -75,11 +76,11 @@ function canAddToCart() {
 
 function renderProductsSelect() {
   const options = [
-    `<option value="">—</option>`,
+    `<option value=""></option>`,
     ...products
       .slice()
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
-      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — ${formatMoney(p.price)} تومان</option>`)
+      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — ${formatMoney(p.price)} ${t('currency')}</option>`)
   ].join('')
 
   els.productSelect.innerHTML = options
@@ -94,18 +95,18 @@ function renderCart() {
     .map(it => {
       const total = formatMoney(it.totalPrice)
       const unit = formatMoney(it.unitPrice)
+      const currency = t('currency')
       return `
         <div class="item" data-id="${escapeHtml(it.id)}">
-          <div class="thumb">سبد</div>
           <div class="meta">
             <div class="title">${escapeHtml(it.name)}</div>
-            <div class="sub">${unit} تومان ×
-              <input data-role="qty" inputmode="numeric" value="${escapeHtml(it.quantity)}" style="width: 90px; margin: 0 6px" />
-              = ${total} تومان
+            <div class="sub">${unit} ${currency} ×
+              <input data-role="qty" inputmode="numeric" value="${escapeHtml(it.quantity)}" type="number" min="1" step="1" style="width: 90px; margin: 0 6px" />
+              = ${total} ${currency}
             </div>
           </div>
           <div class="actions">
-            <button class="btn danger" data-action="del" type="button">حذف</button>
+            <button class="btn danger" data-action="del" type="button">${t('deleteItem')}</button>
           </div>
         </div>
       `
@@ -113,7 +114,7 @@ function renderCart() {
     .join('')
 
   els.cartList.innerHTML = rows
-  setText(els.totalAmount, `${formatMoney(draft.totalAmount)} تومان`)
+  setText(els.totalAmount, `${formatMoney(draft.totalAmount)} ${t('currency')}`)
 
   els.addBtn.disabled = !canAddToCart()
   els.finalizeBtn.disabled = !customerIsValid
@@ -142,16 +143,23 @@ function renderCustomerOrders(customerOrders) {
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
     .map(o => {
       const itemText = (o.items ?? [])
-        .map(it => `${it.name}×${it.quantity}`)
-        .join('، ')
-      const date = new Date(o.createdAt).toLocaleString('fa-IR')
+        .map(it => `${it.name} × ${it.quantity}`)
+        .join(', ')
+      const date = new Date(o.createdAt).toLocaleString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+      const currency = t('currency')
       return `
         <div class="item" style="margin-bottom: 8px">
           <div class="meta">
             <div class="title">${escapeHtml(o.customer?.lastName ?? '')}</div>
             <div class="sub">${escapeHtml(date)}</div>
             <div class="sub">${escapeHtml(itemText)}</div>
-            <div class="sub" style="color: var(--accent); margin-top: 4px">${formatMoney(o.totalAmount)} تومان</div>
+            <div class="sub" style="color: var(--accent); margin-top: 4px">${formatMoney(o.totalAmount)} ${currency}</div>
           </div>
         </div>
       `
@@ -168,14 +176,14 @@ function onSearchCustomer() {
   setHidden(els.customerOrdersContainer, true)
 
   if (!phoneInput) {
-    setText(els.searchError, 'شماره موبایل را وارد کنید')
+    setText(els.searchError, t('errorPhoneRequired'))
     setHidden(els.searchError, false)
     return
   }
 
   const normalized = logic.normalizeIranMobile(phoneInput)
   if (!logic.isValidIranMobile(normalized)) {
-    setText(els.searchError, 'شماره موبایل معتبر نیست (مثال: 09123456789)')
+    setText(els.searchError, t('errorPhoneInvalid'))
     setHidden(els.searchError, false)
     return
   }
@@ -183,7 +191,7 @@ function onSearchCustomer() {
   const foundOrders = findOrdersByPhone(normalized)
   
   if (foundOrders.length === 0) {
-    setText(els.searchOk, 'مشتری پیدا نشد')
+    setText(els.searchOk, t('customerNotFound'))
     setHidden(els.searchOk, true)
     setHidden(els.searchError, true)
     return
@@ -195,7 +203,9 @@ function onSearchCustomer() {
   
   onCustomerChange()
 
-  setText(els.searchOk, `${foundOrders.length} سفارش پیدا شد`)
+  const count = foundOrders.length
+  const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
+  setText(els.searchOk, msg)
   setHidden(els.searchOk, false)
   setHidden(els.searchError, true)
   
@@ -210,7 +220,7 @@ function onCustomerChange() {
 
   if (!res.ok) {
     customerIsValid = false
-    showCustomerError(res.error)
+    showCustomerError(t(res.error) || res.error)
     showCustomerOk('')
     renderCart()
     return
@@ -219,7 +229,7 @@ function onCustomerChange() {
   customerIsValid = true
   draft = res.order
   showCustomerError('')
-  showCustomerOk('اطلاعات مشتری تایید شد')
+  showCustomerOk(t('customerValid'))
   renderCart()
 }
 
@@ -229,13 +239,20 @@ function onAddToCart() {
 
   if (!canAddToCart()) return
   const productId = els.productSelect.value
-  if (!productId) return showFinalError('اول یک محصول انتخاب کنید')
+  if (!productId) return showFinalError(t('errorSelectProduct'))
 
   const product = products.find(p => p.id === productId)
-  if (!product) return showFinalError('محصول پیدا نشد')
+  if (!product) return showFinalError(t('errorProductNotFound'))
 
-  draft = addItemByProduct(draft, product, els.qtyInput.value)
+  const qty = parseQty(els.qtyInput.value)
+  if (qty <= 0) {
+    els.qtyInput.value = '1'
+    return showFinalError(t('errorSelectProduct'))
+  }
+  
+  draft = addItemByProduct(draft, product, qty)
   els.qtyInput.value = '1'
+  showFinalOk('')
   renderCart()
 }
 
@@ -263,8 +280,13 @@ function onCartInput(e) {
   if (!id) return
 
   const qty = parseQty(input.value)
-  input.value = String(qty)
-  draft = updateItemQty(draft, id, qty)
+  if (qty <= 0) {
+    input.value = '1'
+    draft = updateItemQty(draft, id, 1)
+  } else {
+    input.value = String(qty)
+    draft = updateItemQty(draft, id, qty)
+  }
   renderCart()
 }
 
@@ -291,17 +313,19 @@ function finalizeOrder() {
   showFinalOk('')
 
   const res = validateFinalOrder(draft)
-  if (!res.ok) return showFinalError(res.error)
+  if (!res.ok) return showFinalError(t(res.error) || res.error)
 
   orders = [res.order, ...orders]
   saveOrders(orders)
 
   const foundOrders = findOrdersByPhone(res.order.customer.phone)
   renderCustomerOrders(foundOrders)
-  setText(els.searchOk, `${foundOrders.length} سفارش برای این مشتری`)
+  const count = foundOrders.length
+  const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
+  setText(els.searchOk, msg)
   setHidden(els.searchOk, false)
 
-  showFinalOk('سفارش ثبت شد')
+  showFinalOk(t('orderSaved'))
   
   draft = createOrderDraft()
   customerIsValid = false
@@ -377,22 +401,32 @@ function refreshProducts() {
   renderCart()
 }
 
-els.searchBtn.addEventListener('click', onSearchCustomer)
-els.searchPhone.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') onSearchCustomer()
-})
+function init() {
+  ui.initI18n()
+  
+  els.searchBtn.addEventListener('click', onSearchCustomer)
+  els.searchPhone.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') onSearchCustomer()
+  })
 
-els.lastName.addEventListener('input', onCustomerChange)
-els.phone.addEventListener('input', onCustomerChange)
-els.addBtn.addEventListener('click', onAddToCart)
-els.cartList.addEventListener('click', onCartClick)
-els.cartList.addEventListener('input', onCartInput)
-els.clearDraftBtn.addEventListener('click', clearDraft)
-els.finalizeBtn.addEventListener('click', finalizeOrder)
+  els.lastName.addEventListener('input', onCustomerChange)
+  els.phone.addEventListener('input', onCustomerChange)
+  els.addBtn.addEventListener('click', onAddToCart)
+  els.cartList.addEventListener('click', onCartClick)
+  els.cartList.addEventListener('input', onCartInput)
+  els.clearDraftBtn.addEventListener('click', clearDraft)
+  els.finalizeBtn.addEventListener('click', finalizeOrder)
 
-renderProductsSelect()
-renderCart()
+  renderProductsSelect()
+  renderCart()
 
-window.addEventListener('focus', refreshProducts)
+  window.addEventListener('focus', refreshProducts)
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
 
 

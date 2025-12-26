@@ -2,6 +2,7 @@ const { storage, logic, ui } = window.PhotoTools
 const { loadProducts, saveProducts } = storage
 const { createProduct, updateProduct, formatMoney } = logic
 const { $, setText, setHidden, escapeHtml, readFileAsDataUrl } = ui
+const t = window.i18n?.t || ((k) => k)
 
 const els = {
   name: $('#pName'),
@@ -41,14 +42,14 @@ function resetForm() {
   els.price.value = ''
   els.desc.value = ''
   els.image.value = ''
-  setText(els.editPill, 'حالت: افزودن')
+  setText(els.editPill, t('modeAdd'))
   showError('')
   showOk('')
 }
 
 function render() {
   const count = products.length
-  setText(els.countPill, `${count} محصول`)
+  setText(els.countPill, `${count} ${t('productCount')}`)
   setHidden(els.emptyState, count !== 0)
 
   const rows = products
@@ -57,20 +58,21 @@ function render() {
     .map(p => {
       const img = p.imageDataUrl
         ? `<img alt="${escapeHtml(p.name)}" src="${escapeHtml(p.imageDataUrl)}" />`
-        : 'بدون عکس'
+        : t('noImage')
 
       const desc = p.description ? ` — ${escapeHtml(p.description)}` : ''
+      const currency = t('currency')
 
       return `
         <div class="item" data-id="${escapeHtml(p.id)}">
           <div class="thumb">${img}</div>
           <div class="meta">
             <div class="title">${escapeHtml(p.name)}</div>
-            <div class="sub">${formatMoney(p.price)} تومان${desc}</div>
+            <div class="sub">${formatMoney(p.price)} ${currency}${desc}</div>
           </div>
           <div class="actions">
-            <button class="btn" data-action="edit" type="button">ویرایش</button>
-            <button class="btn danger" data-action="del" type="button">حذف</button>
+            <button class="btn" data-action="edit" type="button">${t('editBtn')}</button>
+            <button class="btn danger" data-action="del" type="button">${t('deleteBtn')}</button>
           </div>
         </div>
       `
@@ -91,7 +93,7 @@ async function onPickImage() {
     pendingImageDataUrl = await readFileAsDataUrl(file)
   } catch (e) {
     pendingImageDataUrl = ''
-    showError(e?.message || 'خواندن عکس ناموفق بود')
+    showError(e?.message || t('errorImageRead'))
   }
 }
 
@@ -105,21 +107,21 @@ function startEdit(id) {
   els.price.value = String(p.price ?? '')
   els.desc.value = p.description ?? ''
   els.image.value = ''
-  setText(els.editPill, 'حالت: ویرایش')
-  showOk('محصول برای ویرایش وارد فرم شد')
+  setText(els.editPill, t('modeEdit'))
+  showOk(t('productLoaded'))
 }
 
 function removeProduct(id) {
   const p = products.find(x => x.id === id)
   if (!p) return
-  const ok = confirm(`حذف محصول "${p.name}"؟`)
+  const ok = confirm(`${t('deleteConfirmQuestion')} "${p.name}"?`)
   if (!ok) return
 
   products = products.filter(x => x.id !== id)
   saveProducts(products)
   if (editingId === id) resetForm()
   render()
-  showOk('محصول حذف شد')
+  showOk(t('productDeleted'))
 }
 
 function upsertProduct() {
@@ -134,19 +136,19 @@ function upsertProduct() {
       imageDataUrl: pendingImageDataUrl
     })
 
-    if (!res.ok) return showError(res.error)
+    if (!res.ok) return showError(t(res.error) || res.error)
 
     products = [res.product, ...products]
     saveProducts(products)
     resetForm()
     render()
-    return showOk('محصول ذخیره شد')
+    return showOk(t('productSaved'))
   }
 
   const current = products.find(x => x.id === editingId)
   if (!current) {
     resetForm()
-    return showError('محصول برای ویرایش پیدا نشد')
+    return showError(t('errorProductEditNotFound'))
   }
 
   const patch = {
@@ -158,13 +160,13 @@ function upsertProduct() {
   if (pendingImageDataUrl) patch.imageDataUrl = pendingImageDataUrl
 
   const res = updateProduct(current, patch)
-  if (!res.ok) return showError(res.error)
+  if (!res.ok) return showError(t(res.error) || res.error)
 
   products = products.map(x => (x.id === editingId ? res.product : x))
   saveProducts(products)
   resetForm()
   render()
-  showOk('ویرایش ذخیره شد')
+  showOk(t('productUpdated'))
 }
 
 function onListClick(e) {
@@ -179,12 +181,22 @@ function onListClick(e) {
   if (action === 'del') removeProduct(id)
 }
 
-els.image.addEventListener('change', onPickImage)
-els.saveBtn.addEventListener('click', upsertProduct)
-els.resetBtn.addEventListener('click', resetForm)
-els.productsList.addEventListener('click', onListClick)
+function init() {
+  ui.initI18n()
+  
+  els.image.addEventListener('change', onPickImage)
+  els.saveBtn.addEventListener('click', upsertProduct)
+  els.resetBtn.addEventListener('click', resetForm)
+  els.productsList.addEventListener('click', onListClick)
 
-render()
-resetForm()
+  render()
+  resetForm()
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init)
+} else {
+  init()
+}
 
 

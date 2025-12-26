@@ -1,73 +1,74 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>سفارش‌گیری | Photography Tools</title>
+    <title data-i18n="pageOrder">Order</title>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
     <div class="app">
       <div class="topbar">
         <div class="brand">
-          <h1>ثبت سفارش</h1>
-          <div class="sub">نام خانوادگی + موبایل → افزودن محصول به سبد → ثبت نهایی</div>
+          <h1 data-i18n="orderTitle"></h1>
+          <div class="sub" data-i18n="orderSubtitle"></div>
         </div>
         <div class="nav">
-          <a class="btn" href="./products.html">مدیریت محصولات</a>
+          <a class="btn" href="./products.html" data-i18n="navProducts"></a>
         </div>
       </div>
 
       <div class="grid">
         <div class="card">
-          <h2>ثبت سفارش</h2>
-          <div class="help" style="margin-bottom: 10px">نام خانوادگی + موبایل → افزودن محصول به سبد → ثبت نهایی</div>
-          <h2 style="margin-top: 14px; font-size: 13px">اطلاعات مشتری</h2>
+          <h2 data-i18n="orderTitle"></h2>
+          <div class="help" style="margin-bottom: 24px" data-i18n="orderSubtitle"></div>
+          <h3 data-i18n="customerInfo"></h3>
 
           <div class="row">
             <label>
-              نام خانوادگی
-              <input id="cLastName" placeholder="مثال: احمدی" />
+              <span data-i18n="customerLastName"></span>
+              <input id="cLastName" data-i18n-placeholder="customerLastNamePlaceholder" />
             </label>
             <label>
-              شماره موبایل
-              <input id="cPhone" inputmode="tel" placeholder="مثال: 09123456789" />
+              <span data-i18n="customerPhone"></span>
+              <input id="cPhone" inputmode="tel" data-i18n-placeholder="customerPhonePlaceholder" />
             </label>
           </div>
 
           <div class="ok" id="customerOk" style="display: none"></div>
           <div class="error" id="customerError" style="display: none"></div>
 
-          <h2 style="margin-top: 14px">سبد مشتری</h2>
+          <h3 style="margin-top: 32px" data-i18n="cartTitle"></h3>
 
           <div class="inline">
             <label>
-              انتخاب محصول
+              <span data-i18n="selectProduct"></span>
               <select id="productSelect">
-                <option value="">—</option>
+                <option value=""></option>
               </select>
             </label>
             <label>
-              تعداد
-              <input id="qtyInput" inputmode="numeric" value="1" />
+              <span data-i18n="quantity"></span>
+              <input id="qtyInput" inputmode="numeric" value="1" type="number" min="1" step="1" />
             </label>
-            <button class="btn primary" id="addBtn" type="button">➕ افزودن</button>
+            <button class="btn primary" id="addBtn" type="button" data-i18n="addToCart"></button>
           </div>
 
-          <div class="help" id="noProductsHelp" style="display: none; margin-top: 10px">
-            هنوز محصولی ندارید. از دکمه «مدیریت محصولات» یک محصول بسازید.
-          </div>
+          <div class="help" id="noProductsHelp" style="display: none; margin-top: 10px" data-i18n="noProductsHelp"></div>
 
           <div class="list" id="cartList" style="margin-top: 12px"></div>
-          <div class="help" id="emptyCart" style="display: none; margin-top: 10px">سبد خالی است</div>
+          <div class="help" id="emptyCart" style="display: none; margin-top: 10px" data-i18n="emptyCart"></div>
 
           <div class="totals">
-            <div class="line"><span>مبلغ کل</span><span id="totalAmount">0</span></div>
+            <div class="line">
+              <span data-i18n="totalAmount"></span>
+              <span id="totalAmount">0</span>
+            </div>
           </div>
 
           <div class="split" style="margin-top: 12px">
-            <button class="btn" id="clearDraftBtn" type="button">پاک کردن سبد</button>
-            <button class="btn primary" id="finalizeBtn" type="button">ثبت نهایی سفارش</button>
+            <button class="btn" id="clearDraftBtn" type="button" data-i18n="clearCart"></button>
+            <button class="btn primary" id="finalizeBtn" type="button" data-i18n="finalizeOrder"></button>
           </div>
 
           <div class="error" id="finalError" style="display: none"></div>
@@ -75,30 +76,29 @@
         </div>
 
         <div class="card">
-          <h2>یافتن مشتری</h2>
+          <h2 data-i18n="searchTitle"></h2>
           <div class="row">
             <label>
-              شماره موبایل
-              <input id="searchPhone" inputmode="tel" placeholder="مثال: 09123456789" />
+              <span data-i18n="searchPhone"></span>
+              <input id="searchPhone" inputmode="tel" data-i18n-placeholder="searchPhonePlaceholder" />
             </label>
             <div style="display: flex; align-items: flex-end">
-              <button class="btn primary" id="searchBtn" type="button" style="width: 100%">تایید</button>
+              <button class="btn primary" id="searchBtn" type="button" style="width: 100%" data-i18n="searchConfirm"></button>
             </div>
           </div>
           <div class="error" id="searchError" style="display: none"></div>
           <div class="ok" id="searchOk" style="display: none"></div>
           
-          <div id="customerOrdersContainer" style="display: none; margin-top: 14px">
-            <h3 style="font-size: 13px; margin: 0 0 10px; color: var(--muted)">سفارش‌های قبلی این مشتری</h3>
+          <div id="customerOrdersContainer" style="display: none; margin-top: 24px">
+            <h3 data-i18n="previousOrders"></h3>
             <div class="scrollable-orders" id="customerOrdersList"></div>
           </div>
         </div>
       </div>
     </div>
 
+    <script src="./js/i18n.js"></script>
     <script src="./js/common.js"></script>
     <script src="./js/index.page.js"></script>
   </body>
 </html>
-
-
