@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>سفارش‌گیری | Photography Tools</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">
+          <h1>ثبت سفارش</h1>
+          <div class="sub">نام خانوادگی + موبایل → افزودن محصول به سبد → ثبت نهایی</div>
+        </div>
+        <div class="nav">
+          <a class="btn" href="./products.html">مدیریت محصولات</a>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>اطلاعات مشتری</h2>
+
+          <div class="row">
+            <label>
+              نام خانوادگی
+              <input id="cLastName" placeholder="مثال: احمدی" />
+            </label>
+            <label>
+              شماره موبایل
+              <input id="cPhone" inputmode="tel" placeholder="مثال: 09123456789" />
+            </label>
+          </div>
+
+          <div class="ok" id="customerOk" style="display: none"></div>
+          <div class="error" id="customerError" style="display: none"></div>
+
+          <h2 style="margin-top: 14px">سبد مشتری</h2>
+
+          <div class="inline">
+            <label>
+              انتخاب محصول
+              <select id="productSelect">
+                <option value="">—</option>
+              </select>
+            </label>
+            <label>
+              تعداد
+              <input id="qtyInput" inputmode="numeric" value="1" />
+            </label>
+            <button class="btn primary" id="addBtn" type="button">➕ افزودن</button>
+          </div>
+
+          <div class="help" id="noProductsHelp" style="display: none; margin-top: 10px">
+            هنوز محصولی ندارید. از دکمه «مدیریت محصولات» یک محصول بسازید.
+          </div>
+
+          <div class="list" id="cartList" style="margin-top: 12px"></div>
+          <div class="help" id="emptyCart" style="display: none; margin-top: 10px">سبد خالی است</div>
+
+          <div class="totals">
+            <div class="line"><span>مبلغ کل</span><span id="totalAmount">0</span></div>
+          </div>
+
+          <div class="split" style="margin-top: 12px">
+            <button class="btn" id="clearDraftBtn" type="button">پاک کردن سبد</button>
+            <button class="btn primary" id="finalizeBtn" type="button">ثبت نهایی سفارش</button>
+          </div>
+
+          <div class="error" id="finalError" style="display: none"></div>
+          <div class="ok" id="finalOk" style="display: none"></div>
+        </div>
+
+        <div class="card">
+          <div class="split">
+            <h2 style="margin: 0">سفارش‌های ثبت‌شده</h2>
+            <div class="inline" style="justify-content: flex-end">
+              <button class="btn" id="exportCsvBtn" type="button">خروجی CSV</button>
+              <button class="btn danger" id="clearOrdersBtn" type="button">پاک کردن همه</button>
+            </div>
+          </div>
+
+          <div class="help" style="margin-top: 8px">CSV برای Excel مناسب است (هر سفارش یک ردیف)</div>
+
+          <div class="list" id="ordersList" style="margin-top: 10px"></div>
+          <div class="help" id="emptyOrders" style="display: none; margin-top: 10px">هنوز سفارشی ثبت نشده</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./js/common.js"></script>
+    <script src="./js/index.page.js"></script>
+  </body>
+</html>
+
+

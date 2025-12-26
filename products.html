@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>محصولات | Photography Tools</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">
+          <h1>مدیریت محصولات</h1>
+          <div class="sub">ساخت/ویرایش/حذف محصول — ذخیره در مرورگر</div>
+        </div>
+        <div class="nav">
+          <a class="btn" href="./index.html">بازگشت به سفارش</a>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>افزودن / ویرایش محصول</h2>
+
+          <div class="row">
+            <label>
+              نام محصول
+              <input id="pName" placeholder="مثال: چاپ عکس ۱۰×۱۵" />
+            </label>
+            <label>
+              قیمت (تومان)
+              <input id="pPrice" inputmode="numeric" placeholder="مثال: 50000" />
+            </label>
+          </div>
+
+          <div class="row" style="margin-top: 10px">
+            <label>
+              عکس محصول (اختیاری)
+              <input id="pImage" type="file" accept="image/*" />
+            </label>
+            <label>
+              توضیحات (اختیاری)
+              <input id="pDesc" placeholder="مثال: تحویل یک‌روزه" />
+            </label>
+          </div>
+
+          <div class="split" style="margin-top: 12px">
+            <div class="pill" id="editPill">حالت: افزودن</div>
+            <div class="inline" style="justify-content: flex-end">
+              <button class="btn" id="resetBtn" type="button">پاک کردن فرم</button>
+              <button class="btn primary" id="saveBtn" type="button">ذخیره محصول</button>
+            </div>
+          </div>
+
+          <div class="error" id="formError" style="display: none"></div>
+          <div class="ok" id="formOk" style="display: none"></div>
+
+          <div class="footerNote">
+            نکته: عکس‌ها به صورت DataURL داخل مرورگر ذخیره می‌شوند و ممکن است فضای ذخیره‌سازی مرورگر را مصرف کنند.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="split">
+            <h2 style="margin: 0">لیست محصولات</h2>
+            <div class="pill" id="countPill">0 محصول</div>
+          </div>
+
+          <div class="help" style="margin-top: 8px">روی «ویرایش» بزنید تا اطلاعات محصول وارد فرم شود.</div>
+
+          <div class="list" id="productsList" style="margin-top: 10px"></div>
+
+          <div class="help" id="emptyState" style="display: none; margin-top: 10px">
+            هنوز محصولی ثبت نکردید. اول یک محصول بسازید تا در صفحه سفارش قابل انتخاب باشد.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./js/common.js"></script>
+    <script src="./js/products.page.js"></script>
+  </body>
+</html>
+
+
