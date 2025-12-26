@@ -36,7 +36,7 @@
           <div class="ok" id="customerOk" style="display: none"></div>
           <div class="error" id="customerError" style="display: none"></div>
 
-          <h3 style="margin-top: 32px" data-i18n="cartTitle"></h3>
+          <h3 class="mt-xl" data-i18n="cartTitle"></h3>
 
           <div class="inline">
             <label>
@@ -52,26 +52,26 @@
             <button class="btn primary" id="addBtn" type="button" data-i18n="addToCart"></button>
           </div>
 
-          <div class="list" id="cartList" style="margin-top: 12px"></div>
+          <div class="list mt-sm" id="cartList"></div>
 
           <div class="totals">
             <div class="line">
               <span data-i18n="totalAmount"></span>
               <span id="totalAmount">0</span>
             </div>
-            <div class="row" style="margin-top: 16px">
+            <div class="row mt-md">
               <label>
                 <span data-i18n="deposit"></span>
                 <input id="depositInput" inputmode="numeric" type="text" value="0" />
               </label>
             </div>
-            <div class="line" style="margin-top: 12px">
+            <div class="line mt-sm">
               <span data-i18n="remainingAmount"></span>
               <span id="remainingAmount" style="color: var(--danger)">0</span>
             </div>
           </div>
 
-          <div class="split" style="margin-top: 12px">
+          <div class="split mt-sm">
             <button class="btn" id="clearDraftBtn" type="button" data-i18n="clearCart"></button>
             <button class="btn primary" id="finalizeBtn" type="button" data-i18n="finalizeOrder"></button>
           </div>
@@ -87,14 +87,14 @@
               <span data-i18n="searchPhone"></span>
               <input id="searchPhone" inputmode="tel" />
             </label>
-            <div style="display: flex; align-items: flex-end">
-              <button class="btn primary" id="searchBtn" type="button" style="width: 100%" data-i18n="searchConfirm"></button>
+            <div class="search-btn-wrapper">
+              <button class="btn primary" id="searchBtn" type="button" data-i18n="searchConfirm"></button>
             </div>
           </div>
           <div class="error" id="searchError" style="display: none"></div>
           <div class="ok" id="searchOk" style="display: none"></div>
           
-          <div id="customerOrdersContainer" style="display: none; margin-top: 24px">
+          <div id="customerOrdersContainer" class="mt-lg" style="display: none">
             <h3 data-i18n="previousOrders"></h3>
             <div class="scrollable-orders" id="customerOrdersList"></div>
           </div>

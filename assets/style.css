@@ -61,7 +61,7 @@ body {
 }
 
 .brand h1 {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 600;
   margin: 0;
   letter-spacing: -0.003em;
@@ -85,7 +85,8 @@ body {
   border: none;
   background: var(--text);
   color: #ffffff;
-  padding: 12px 22px;
+  padding: 14px 24px;
+  min-height: 44px;
   border-radius: 980px;
   cursor: pointer;
   text-decoration: none;
@@ -150,17 +151,19 @@ body {
   background: var(--panel);
   border: none;
   border-radius: var(--radius);
-  padding: 32px;
+  padding: 24px;
   box-shadow: var(--shadow);
   transition: box-shadow 0.3s ease;
 }
 
-.card:hover {
-  box-shadow: var(--shadow-hover);
+@media (hover: hover) {
+  .card:hover {
+    box-shadow: var(--shadow-hover);
+  }
 }
 
 .card h2 {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 600;
   margin: 0 0 24px;
   color: var(--text);
@@ -199,7 +202,8 @@ label {
 
 input, select, textarea {
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 18px;
+  min-height: 48px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--panel);
@@ -212,6 +216,12 @@ input, select, textarea {
   font-family: var(--font);
 }
 
+input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg);
+}
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   opacity: 1;
@@ -220,6 +230,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="file"] {
   padding: 8px;
+  min-height: auto;
   cursor: pointer;
 }
 
@@ -248,6 +259,10 @@ textarea {
   resize: vertical;
 }
 
+textarea:not([rows]) {
+  min-height: max(100px, 48px);
+}
+
 .help {
   font-size: 17px;
   color: var(--text-secondary);
@@ -260,6 +275,10 @@ textarea {
   color: var(--danger);
   font-size: 17px;
   margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 59, 48, 0.1);
+  border-radius: 12px;
+  border-left: 3px solid var(--danger);
   line-height: 1.47059;
   letter-spacing: -0.022em;
 }
@@ -268,6 +287,10 @@ textarea {
   color: var(--ok);
   font-size: 17px;
   margin-top: 12px;
+  padding: 12px 16px;
+  background: rgba(52, 199, 89, 0.1);
+  border-radius: 12px;
+  border-left: 3px solid var(--ok);
   line-height: 1.47059;
   letter-spacing: -0.022em;
 }
@@ -377,6 +400,17 @@ textarea {
   min-width: 160px;
 }
 
+@media (max-width: 520px) {
+  .inline {
+    flex-direction: column;
+  }
+  
+  .inline .btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
 .totals {
   display: grid;
   gap: 12px;
@@ -409,7 +443,7 @@ textarea {
 }
 
 .scrollable-orders {
-  max-height: 500px;
+  max-height: min(500px, 50vh);
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 8px;
@@ -431,4 +465,58 @@ textarea {
 
 .scrollable-orders::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* Spacing utilities for margin-top */
+.mt-sm {
+  margin-top: 12px;
+}
+
+.mt-md {
+  margin-top: 16px;
+}
+
+.mt-lg {
+  margin-top: 24px;
+}
+
+.mt-xl {
+  margin-top: 32px;
+}
+
+/* RTL Support */
+[dir="rtl"] .row {
+  direction: rtl;
+}
+
+[dir="rtl"] .split {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .inline {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .error,
+[dir="rtl"] .ok {
+  border-left: none;
+  border-right: 3px solid;
+}
+
+[dir="rtl"] .error {
+  border-right-color: var(--danger);
+}
+
+[dir="rtl"] .ok {
+  border-right-color: var(--ok);
+}
+
+/* Search button wrapper */
+.search-btn-wrapper {
+  display: flex;
+  align-items: flex-end;
+}
+
+.search-btn-wrapper .btn {
+  width: 100%;
 }

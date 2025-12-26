@@ -119,8 +119,18 @@ function renderCart() {
   setText(els.totalAmount, `${formatMoney(draft.totalAmount)} ${t('currency')}`)
   setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
 
+  els.productSelect.disabled = !customerIsValid
+  els.qtyInput.disabled = !customerIsValid
   els.addBtn.disabled = !canAddToCart()
+  els.depositInput.disabled = !customerIsValid
   els.finalizeBtn.disabled = !customerIsValid
+  els.clearDraftBtn.disabled = !customerIsValid
+  
+  if (!customerIsValid) {
+    els.productSelect.value = ''
+    els.qtyInput.value = '1'
+    els.depositInput.value = '0'
+  }
 }
 
 function findOrdersByPhone(phone) {
@@ -237,6 +247,12 @@ function onCustomerChange() {
     customerIsValid = false
     showCustomerError(t(res.error) || res.error)
     showCustomerOk('')
+    
+    els.productSelect.disabled = true
+    els.qtyInput.disabled = true
+    els.depositInput.disabled = true
+    els.clearDraftBtn.disabled = true
+    
     renderCart()
     return
   }
@@ -245,6 +261,12 @@ function onCustomerChange() {
   draft = res.order
   showCustomerError('')
   showCustomerOk(t('customerValid'))
+  
+  els.productSelect.disabled = false
+  els.qtyInput.disabled = false
+  els.depositInput.disabled = false
+  els.clearDraftBtn.disabled = false
+  
   renderCart()
 }
 
@@ -321,6 +343,12 @@ function clearDraft() {
   setText(els.searchError, '')
   setText(els.searchOk, '')
   setHidden(els.customerOrdersContainer, true)
+  
+  els.productSelect.disabled = true
+  els.qtyInput.disabled = true
+  els.depositInput.disabled = true
+  els.clearDraftBtn.disabled = true
+  
   renderCart()
 }
 
@@ -490,6 +518,12 @@ function init() {
   els.finalizeBtn.addEventListener('click', finalizeOrder)
 
   renderProductsSelect()
+  
+  els.productSelect.disabled = true
+  els.qtyInput.disabled = true
+  els.depositInput.disabled = true
+  els.clearDraftBtn.disabled = true
+  
   renderCart()
 
   window.addEventListener('focus', refreshProducts)
