@@ -13,6 +13,13 @@ const {
 const { $, setText, setHidden, escapeHtml } = ui
 
 const els = {
+  searchPhone: $('#searchPhone'),
+  searchBtn: $('#searchBtn'),
+  searchError: $('#searchError'),
+  searchOk: $('#searchOk'),
+  customerOrdersContainer: $('#customerOrdersContainer'),
+  customerOrdersList: $('#customerOrdersList'),
+
   lastName: $('#cLastName'),
   phone: $('#cPhone'),
   customerOk: $('#customerOk'),
@@ -31,10 +38,6 @@ const els = {
   finalError: $('#finalError'),
   finalOk: $('#finalOk'),
 
-  exportCsvBtn: $('#exportCsvBtn'),
-  clearOrdersBtn: $('#clearOrdersBtn'),
-  ordersList: $('#ordersList'),
-  emptyOrders: $('#emptyOrders')
 }
 
 let products = loadProducts()
@@ -116,35 +119,87 @@ function renderCart() {
   els.finalizeBtn.disabled = !customerIsValid
 }
 
-function renderOrders() {
-  const count = orders.length
-  setHidden(els.emptyOrders, count !== 0)
+function findOrdersByPhone(phone) {
+  const normalized = logic.normalizeIranMobile(phone)
+  if (!logic.isValidIranMobile(normalized)) return []
+  
+  return orders.filter(o => {
+    const orderPhone = logic.normalizeIranMobile(o.customer?.phone ?? '')
+    return orderPhone === normalized
+  })
+}
 
-  const rows = orders
+function renderCustomerOrders(customerOrders) {
+  if (customerOrders.length === 0) {
+    setHidden(els.customerOrdersContainer, true)
+    return
+  }
+
+  setHidden(els.customerOrdersContainer, false)
+
+  const rows = customerOrders
     .slice()
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
-    .slice(0, 20)
     .map(o => {
       const itemText = (o.items ?? [])
         .map(it => `${it.name}×${it.quantity}`)
         .join('، ')
+      const date = new Date(o.createdAt).toLocaleString('fa-IR')
       return `
-        <div class="item">
-          <div class="thumb">ثبت</div>
+        <div class="item" style="margin-bottom: 8px">
           <div class="meta">
-            <div class="title">${escapeHtml(o.customer?.lastName)} — ${escapeHtml(o.customer?.phone)}</div>
-            <div class="sub">${escapeHtml(new Date(o.createdAt).toLocaleString('fa-IR'))} — ${formatMoney(o.totalAmount)} تومان</div>
+            <div class="title">${escapeHtml(o.customer?.lastName ?? '')}</div>
+            <div class="sub">${escapeHtml(date)}</div>
             <div class="sub">${escapeHtml(itemText)}</div>
-          </div>
-          <div class="actions">
-            <span class="pill">#${escapeHtml(o.id)}</span>
+            <div class="sub" style="color: var(--accent); margin-top: 4px">${formatMoney(o.totalAmount)} تومان</div>
           </div>
         </div>
       `
     })
     .join('')
 
-  els.ordersList.innerHTML = rows
+  els.customerOrdersList.innerHTML = rows
+}
+
+function onSearchCustomer() {
+  const phoneInput = els.searchPhone.value.trim()
+  setText(els.searchError, '')
+  setText(els.searchOk, '')
+  setHidden(els.customerOrdersContainer, true)
+
+  if (!phoneInput) {
+    setText(els.searchError, 'شماره موبایل را وارد کنید')
+    setHidden(els.searchError, false)
+    return
+  }
+
+  const normalized = logic.normalizeIranMobile(phoneInput)
+  if (!logic.isValidIranMobile(normalized)) {
+    setText(els.searchError, 'شماره موبایل معتبر نیست (مثال: 09123456789)')
+    setHidden(els.searchError, false)
+    return
+  }
+
+  const foundOrders = findOrdersByPhone(normalized)
+  
+  if (foundOrders.length === 0) {
+    setText(els.searchOk, 'مشتری پیدا نشد')
+    setHidden(els.searchOk, true)
+    setHidden(els.searchError, true)
+    return
+  }
+
+  const customer = foundOrders[0].customer
+  els.lastName.value = customer?.lastName ?? ''
+  els.phone.value = normalized
+  
+  onCustomerChange()
+
+  setText(els.searchOk, `${foundOrders.length} سفارش پیدا شد`)
+  setHidden(els.searchOk, false)
+  setHidden(els.searchError, true)
+  
+  renderCustomerOrders(foundOrders)
 }
 
 function onCustomerChange() {
@@ -218,12 +273,16 @@ function clearDraft() {
   customerIsValid = false
   els.lastName.value = ''
   els.phone.value = ''
+  els.searchPhone.value = ''
   els.productSelect.value = ''
   els.qtyInput.value = '1'
   showCustomerError('')
   showCustomerOk('')
   showFinalError('')
   showFinalOk('')
+  setText(els.searchError, '')
+  setText(els.searchOk, '')
+  setHidden(els.customerOrdersContainer, true)
   renderCart()
 }
 
@@ -236,10 +295,22 @@ function finalizeOrder() {
 
   orders = [res.order, ...orders]
   saveOrders(orders)
-  renderOrders()
+
+  const foundOrders = findOrdersByPhone(res.order.customer.phone)
+  renderCustomerOrders(foundOrders)
+  setText(els.searchOk, `${foundOrders.length} سفارش برای این مشتری`)
+  setHidden(els.searchOk, false)
 
   showFinalOk('سفارش ثبت شد')
-  clearDraft()
+  
+  draft = createOrderDraft()
+  customerIsValid = false
+  els.productSelect.value = ''
+  els.qtyInput.value = '1'
+  showCustomerError('')
+  showCustomerOk('')
+  showFinalError('')
+  renderCart()
 }
 
 function escapeCsvCell(v) {
@@ -298,7 +369,6 @@ function clearOrders() {
   if (!ok) return
   orders = []
   saveOrders(orders)
-  renderOrders()
 }
 
 function refreshProducts() {
@@ -307,6 +377,11 @@ function refreshProducts() {
   renderCart()
 }
 
+els.searchBtn.addEventListener('click', onSearchCustomer)
+els.searchPhone.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') onSearchCustomer()
+})
+
 els.lastName.addEventListener('input', onCustomerChange)
 els.phone.addEventListener('input', onCustomerChange)
 els.addBtn.addEventListener('click', onAddToCart)
@@ -314,12 +389,9 @@ els.cartList.addEventListener('click', onCartClick)
 els.cartList.addEventListener('input', onCartInput)
 els.clearDraftBtn.addEventListener('click', clearDraft)
 els.finalizeBtn.addEventListener('click', finalizeOrder)
-els.exportCsvBtn.addEventListener('click', exportCsv)
-els.clearOrdersBtn.addEventListener('click', clearOrders)
 
 renderProductsSelect()
 renderCart()
-renderOrders()
 
 window.addEventListener('focus', refreshProducts)
 

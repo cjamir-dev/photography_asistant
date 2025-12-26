@@ -20,7 +20,9 @@
 
       <div class="grid">
         <div class="card">
-          <h2>اطلاعات مشتری</h2>
+          <h2>ثبت سفارش</h2>
+          <div class="help" style="margin-bottom: 10px">نام خانوادگی + موبایل → افزودن محصول به سبد → ثبت نهایی</div>
+          <h2 style="margin-top: 14px; font-size: 13px">اطلاعات مشتری</h2>
 
           <div class="row">
             <label>
@@ -73,18 +75,23 @@
         </div>
 
         <div class="card">
-          <div class="split">
-            <h2 style="margin: 0">سفارش‌های ثبت‌شده</h2>
-            <div class="inline" style="justify-content: flex-end">
-              <button class="btn" id="exportCsvBtn" type="button">خروجی CSV</button>
-              <button class="btn danger" id="clearOrdersBtn" type="button">پاک کردن همه</button>
+          <h2>یافتن مشتری</h2>
+          <div class="row">
+            <label>
+              شماره موبایل
+              <input id="searchPhone" inputmode="tel" placeholder="مثال: 09123456789" />
+            </label>
+            <div style="display: flex; align-items: flex-end">
+              <button class="btn primary" id="searchBtn" type="button" style="width: 100%">تایید</button>
             </div>
           </div>
-
-          <div class="help" style="margin-top: 8px">CSV برای Excel مناسب است (هر سفارش یک ردیف)</div>
-
-          <div class="list" id="ordersList" style="margin-top: 10px"></div>
-          <div class="help" id="emptyOrders" style="display: none; margin-top: 10px">هنوز سفارشی ثبت نشده</div>
+          <div class="error" id="searchError" style="display: none"></div>
+          <div class="ok" id="searchOk" style="display: none"></div>
+          
+          <div id="customerOrdersContainer" style="display: none; margin-top: 14px">
+            <h3 style="font-size: 13px; margin: 0 0 10px; color: var(--muted)">سفارش‌های قبلی این مشتری</h3>
+            <div class="scrollable-orders" id="customerOrdersList"></div>
+          </div>
         </div>
       </div>
     </div>

@@ -202,7 +202,7 @@ textarea {
 
 .item {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 1fr;
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -292,6 +292,37 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.scrollable-orders {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.scrollable-orders::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollable-orders::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.scrollable-orders::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.scrollable-orders::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+h3 {
+  font-size: 13px;
+  margin: 0;
+  color: var(--muted);
 }
 
 
