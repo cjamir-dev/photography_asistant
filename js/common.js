@@ -23,23 +23,67 @@
     }
   }
 
-  function loadProducts() {
+  async function loadProducts() {
+    try {
+      const response = await fetch('/api/products')
+      if (response.ok) {
+        const data = await response.json()
+        return Array.isArray(data) ? data : []
+      }
+    } catch (e) {
+      console.warn('Failed to load products from server, using localStorage fallback')
+    }
     const raw = localStorage.getItem(KEYS.products)
     const list = safeJsonParse(raw, [])
     return Array.isArray(list) ? list : []
   }
 
-  function saveProducts(products) {
+  async function saveProducts(products) {
+    try {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(products ?? [])
+      })
+      if (response.ok) {
+        localStorage.setItem(KEYS.products, JSON.stringify(products ?? []))
+        return
+      }
+    } catch (e) {
+      console.warn('Failed to save products to server, using localStorage fallback')
+    }
     localStorage.setItem(KEYS.products, JSON.stringify(products ?? []))
   }
 
-  function loadOrders() {
+  async function loadOrders() {
+    try {
+      const response = await fetch('/api/orders')
+      if (response.ok) {
+        const data = await response.json()
+        return Array.isArray(data) ? data : []
+      }
+    } catch (e) {
+      console.warn('Failed to load orders from server, using localStorage fallback')
+    }
     const raw = localStorage.getItem(KEYS.orders)
     const list = safeJsonParse(raw, [])
     return Array.isArray(list) ? list : []
   }
 
-  function saveOrders(orders) {
+  async function saveOrders(orders) {
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orders ?? [])
+      })
+      if (response.ok) {
+        localStorage.setItem(KEYS.orders, JSON.stringify(orders ?? []))
+        return
+      }
+    } catch (e) {
+      console.warn('Failed to save orders to server, using localStorage fallback')
+    }
     localStorage.setItem(KEYS.orders, JSON.stringify(orders ?? []))
   }
 
@@ -292,6 +336,40 @@
     })
   }
 
+  function downloadJson(filename, data) {
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function readJsonFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('No file selected'))
+        return
+      }
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.onload = () => {
+        try {
+          const text = reader.result
+          const data = JSON.parse(text)
+          resolve(data)
+        } catch (e) {
+          reject(new Error('Invalid JSON file'))
+        }
+      }
+      reader.readAsText(file)
+    })
+  }
+
   window.PhotoTools = {
     storage: {
       loadProducts,
@@ -299,6 +377,10 @@
       loadOrders,
       saveOrders,
       clearAll
+    },
+    file: {
+      downloadJson,
+      readJsonFile
     },
     logic: {
       nowIso,

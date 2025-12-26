@@ -13,6 +13,8 @@
           <h1 data-i18n="orderTitle"></h1>
         </div>
         <div class="nav">
+          <button class="btn" id="exportOrdersBtn" type="button" data-i18n="exportOrders"></button>
+          <button class="btn" id="importOrdersBtn" type="button" data-i18n="importOrders"></button>
           <a class="btn" href="./products.html" data-i18n="navProducts"></a>
         </div>
       </div>
@@ -102,6 +104,7 @@
       </div>
     </div>
 
+    <input type="file" id="importOrdersFile" accept=".json" style="display: none" />
     <script src="./js/i18n.js"></script>
     <script src="./js/common.js"></script>
     <script src="./js/index.page.js"></script>

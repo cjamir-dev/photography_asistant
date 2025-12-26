@@ -1,26 +1,57 @@
-# Photography Tools (Simple Order App)
+# Photography Tools - Order Management App
 
-یک اپ ساده HTML برای سفارش‌گیری مغازه عکاسی (بدون UI پیچیده، بدون نیاز به سرور).
+A simple HTML application for managing photography shop orders.
 
-## صفحات
+## Features
 
-- `index.html`: ثبت مشتری (نام خانوادگی + موبایل) و افزودن محصولات به سبد و ثبت نهایی سفارش
-- `products.html`: ساخت/ویرایش/حذف محصولات (عکس، قیمت، توضیحات)
+- Customer order registration
+- Product management
+- Deposit and remaining amount tracking
+- Customer search by phone number
+- Automatic data persistence to local files
 
-## ذخیره‌سازی
+## Setup
 
-همه داده‌ها در مرورگر با `localStorage` ذخیره می‌شوند:
+### Quick Start
 
-- محصولات: `photo_tools_products_v1`
-- سفارش‌ها: `photo_tools_orders_v1`
+**Option 1: Double-click `start-server.bat`** (Easiest)
 
-## اجرا
+**Option 2: Run in Terminal**
 
-فایل‌ها را مستقیم با مرورگر باز کنید (بدون نیاز به سرور):
+If you get PowerShell execution policy error, use one of these:
 
-- `index.html`
-- `products.html`
+```bash
+# Method 1: Use Command Prompt (cmd) instead of PowerShell
+node server.js
 
-نکته: برای آپلود عکس و ذخیره‌سازی DataURL، بهتر است از Chrome/Edge استفاده شود.
+# Method 2: Bypass PowerShell policy (one-time)
+powershell -ExecutionPolicy Bypass -Command "npm start"
 
+# Method 3: Change PowerShell policy (requires admin)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
 
+Then open browser: `http://localhost:3000`
+
+### Option 3: Direct File Access (Fallback)
+
+If server is not running, the app will use browser localStorage as fallback.
+
+## Data Storage
+
+Data is automatically saved to:
+- `data/products.json` - Product database
+- `data/orders.json` - Orders database
+
+These files are created automatically in the project directory.
+
+## Usage
+
+1. **Manage Products**: Go to "Manage Products" page to add/edit products
+2. **Create Order**: Enter customer name and phone, add products to cart, set deposit, finalize order
+3. **Find Customer**: Search by phone number to view previous orders
+4. **Settle Payment**: Click "Settle" button on orders with remaining balance
+
+## Backup
+
+Simply copy the `data` folder to backup your data. The files are standard JSON format.

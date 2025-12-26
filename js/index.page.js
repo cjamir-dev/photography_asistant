@@ -1,5 +1,6 @@
-const { storage, logic, ui, formatMoneyInput } = window.PhotoTools
+const { storage, logic, ui, formatMoneyInput, file } = window.PhotoTools
 const { loadProducts, loadOrders, saveOrders } = storage
+const { downloadJson, readJsonFile } = file
 const {
   createOrderDraft,
   setCustomer,
@@ -40,12 +41,25 @@ const els = {
   finalError: $('#finalError'),
   finalOk: $('#finalOk'),
 
+  exportOrdersBtn: $('#exportOrdersBtn'),
+  importOrdersBtn: $('#importOrdersBtn'),
+  importOrdersFile: $('#importOrdersFile')
 }
 
-let products = loadProducts()
-let orders = loadOrders()
+let products = []
+let orders = []
 let draft = createOrderDraft()
 let customerIsValid = false
+
+async function initData() {
+  products = await loadProducts()
+  orders = await loadOrders()
+  renderProductsSelect()
+  renderCart()
+  if (els.searchPhone.value) {
+    onSearchCustomer()
+  }
+}
 
 function showCustomerError(msg) {
   setText(els.customerError, msg)
@@ -250,6 +264,7 @@ function onCustomerChange() {
     
     els.productSelect.disabled = true
     els.qtyInput.disabled = true
+    els.addBtn.disabled = true
     els.depositInput.disabled = true
     els.clearDraftBtn.disabled = true
     
@@ -264,6 +279,7 @@ function onCustomerChange() {
   
   els.productSelect.disabled = false
   els.qtyInput.disabled = false
+  els.addBtn.disabled = false
   els.depositInput.disabled = false
   els.clearDraftBtn.disabled = false
   
@@ -346,13 +362,14 @@ function clearDraft() {
   
   els.productSelect.disabled = true
   els.qtyInput.disabled = true
+  els.addBtn.disabled = true
   els.depositInput.disabled = true
   els.clearDraftBtn.disabled = true
   
   renderCart()
 }
 
-function finalizeOrder() {
+async function finalizeOrder() {
   showFinalError('')
   showFinalOk('')
 
@@ -364,7 +381,7 @@ function finalizeOrder() {
   if (!res.ok) return showFinalError(t(res.error) || res.error)
 
   orders = [res.order, ...orders]
-  saveOrders(orders)
+  await saveOrders(orders)
 
   const foundOrders = findOrdersByPhone(res.order.customer.phone)
   renderCustomerOrders(foundOrders)
@@ -437,15 +454,15 @@ function exportCsv() {
   downloadTextFile(`orders_${date}.csv`, csv)
 }
 
-function clearOrders() {
+async function clearOrders() {
   const ok = confirm('همه سفارش‌ها پاک شوند؟')
   if (!ok) return
   orders = []
-  saveOrders(orders)
+  await saveOrders(orders)
 }
 
-function refreshProducts() {
-  products = loadProducts()
+async function refreshProducts() {
+  products = await loadProducts()
   renderProductsSelect()
   renderCart()
 }
@@ -471,7 +488,7 @@ function onDepositChange() {
   setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
 }
 
-function onCustomerOrdersClick(e) {
+async function onCustomerOrdersClick(e) {
   const btn = e.target?.closest('button[data-action]')
   if (!btn) return
   const row = e.target?.closest('.item')
@@ -485,14 +502,56 @@ function onCustomerOrdersClick(e) {
     
     order.deposit = order.totalAmount
     order.remainingAmount = 0
-    saveOrders(orders)
+    await saveOrders(orders)
     
     const foundOrders = findOrdersByPhone(order.customer.phone)
     renderCustomerOrders(foundOrders)
   }
 }
 
-function init() {
+function exportOrders() {
+  if (orders.length === 0) {
+    alert('No orders to export')
+    return
+  }
+  const date = new Date().toISOString().slice(0, 10)
+  downloadJson(`orders_${date}.json`, orders)
+  showFinalOk(t('dataExported'))
+}
+
+async function importOrders() {
+  const file = els.importOrdersFile.files?.[0]
+  if (!file) {
+    els.importOrdersFile.click()
+    return
+  }
+  
+  try {
+    const data = await readJsonFile(file)
+    if (!Array.isArray(data)) {
+      throw new Error('Invalid data format')
+    }
+    
+    const confirmed = confirm(t('confirmImport'))
+    if (!confirmed) return
+    
+    orders = data
+    await saveOrders(orders)
+    
+    const foundOrders = findOrdersByPhone(els.searchPhone.value)
+    if (foundOrders.length > 0) {
+      renderCustomerOrders(foundOrders)
+    }
+    
+    showFinalOk(t('dataImported'))
+    els.importOrdersFile.value = ''
+  } catch (e) {
+    showFinalError(t('importError') + ': ' + (e.message || 'Unknown error'))
+    els.importOrdersFile.value = ''
+  }
+}
+
+async function init() {
   ui.initI18n()
   
   els.searchBtn.addEventListener('click', onSearchCustomer)
@@ -516,15 +575,17 @@ function init() {
   els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
   els.clearDraftBtn.addEventListener('click', clearDraft)
   els.finalizeBtn.addEventListener('click', finalizeOrder)
+  els.exportOrdersBtn.addEventListener('click', exportOrders)
+  els.importOrdersBtn.addEventListener('click', importOrders)
+  els.importOrdersFile.addEventListener('change', importOrders)
 
-  renderProductsSelect()
-  
   els.productSelect.disabled = true
   els.qtyInput.disabled = true
+  els.addBtn.disabled = true
   els.depositInput.disabled = true
   els.clearDraftBtn.disabled = true
-  
-  renderCart()
+
+  await initData()
 
   window.addEventListener('focus', refreshProducts)
 }

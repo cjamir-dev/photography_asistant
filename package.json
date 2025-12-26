@@ -1,0 +1,13 @@
+{
+  "name": "photography-tools",
+  "version": "1.0.0",
+  "description": "Simple order management for photography shop",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
+

@@ -94,7 +94,19 @@
     
     // Cart item
     cartItem: 'Cart',
-    deleteItem: 'Delete'
+    deleteItem: 'Delete',
+    
+    // Data Management
+    exportData: 'Export Data',
+    importData: 'Import Data',
+    exportProducts: 'Export Products',
+    exportOrders: 'Export Orders',
+    importProducts: 'Import Products',
+    importOrders: 'Import Orders',
+    dataExported: 'Data exported successfully',
+    dataImported: 'Data imported successfully',
+    importError: 'Failed to import data',
+    confirmImport: 'This will replace all current data. Continue?'
   }
   
   window.i18n = {
