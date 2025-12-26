@@ -1,4 +1,4 @@
-const { storage, logic, ui } = window.PhotoTools
+const { storage, logic, ui, formatMoneyInput } = window.PhotoTools
 const { loadProducts, saveProducts } = storage
 const { createProduct, updateProduct, formatMoney } = logic
 const { $, setText, setHidden, escapeHtml, readFileAsDataUrl } = ui
@@ -14,9 +14,7 @@ const els = {
   productsList: $('#productsList'),
   formError: $('#formError'),
   formOk: $('#formOk'),
-  countPill: $('#countPill'),
-  emptyState: $('#emptyState'),
-  editPill: $('#editPill')
+  countPill: $('#countPill')
 }
 
 let products = loadProducts()
@@ -42,7 +40,6 @@ function resetForm() {
   els.price.value = ''
   els.desc.value = ''
   els.image.value = ''
-  setText(els.editPill, t('modeAdd'))
   showError('')
   showOk('')
 }
@@ -50,7 +47,6 @@ function resetForm() {
 function render() {
   const count = products.length
   setText(els.countPill, `${count} ${t('productCount')}`)
-  setHidden(els.emptyState, count !== 0)
 
   const rows = products
     .slice()
@@ -104,11 +100,10 @@ function startEdit(id) {
   editingId = id
   pendingImageDataUrl = ''
   els.name.value = p.name ?? ''
-  els.price.value = String(p.price ?? '')
+  els.price.value = formatMoneyInput(String(p.price ?? ''))
   els.desc.value = p.description ?? ''
   els.image.value = ''
-  setText(els.editPill, t('modeEdit'))
-  showOk(t('productLoaded'))
+  showOk('')
 }
 
 function removeProduct(id) {
@@ -184,10 +179,18 @@ function onListClick(e) {
 function init() {
   ui.initI18n()
   
-  els.image.addEventListener('change', onPickImage)
-  els.saveBtn.addEventListener('click', upsertProduct)
-  els.resetBtn.addEventListener('click', resetForm)
-  els.productsList.addEventListener('click', onListClick)
+els.image.addEventListener('change', onPickImage)
+els.saveBtn.addEventListener('click', upsertProduct)
+els.resetBtn.addEventListener('click', resetForm)
+els.productsList.addEventListener('click', onListClick)
+
+els.price.addEventListener('input', (e) => {
+  formatPriceInput(e.target)
+})
+
+els.price.addEventListener('blur', (e) => {
+  e.target.value = formatMoneyInput(e.target.value)
+})
 
   render()
   resetForm()

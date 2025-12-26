@@ -24,8 +24,11 @@
     addToCart: 'Add to Cart',
     emptyCart: 'Cart is empty',
     totalAmount: 'Total Amount',
+    deposit: 'Deposit',
+    remainingAmount: 'Remaining',
     clearCart: 'Clear Cart',
     finalizeOrder: 'Finalize Order',
+    settlePayment: 'Settle',
     noProductsHelp: 'No products yet. Create a product from the "Manage Products" button.',
     
     // Search

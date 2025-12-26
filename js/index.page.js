@@ -1,4 +1,4 @@
-const { storage, logic, ui } = window.PhotoTools
+const { storage, logic, ui, formatMoneyInput } = window.PhotoTools
 const { loadProducts, loadOrders, saveOrders } = storage
 const {
   createOrderDraft,
@@ -8,6 +8,7 @@ const {
   removeItem,
   validateFinalOrder,
   formatMoney,
+  parseMoney,
   parseQty
 } = logic
 const { $, setText, setHidden, escapeHtml } = ui
@@ -29,11 +30,11 @@ const els = {
   productSelect: $('#productSelect'),
   qtyInput: $('#qtyInput'),
   addBtn: $('#addBtn'),
-  noProductsHelp: $('#noProductsHelp'),
 
   cartList: $('#cartList'),
-  emptyCart: $('#emptyCart'),
   totalAmount: $('#totalAmount'),
+  depositInput: $('#depositInput'),
+  remainingAmount: $('#remainingAmount'),
   clearDraftBtn: $('#clearDraftBtn'),
   finalizeBtn: $('#finalizeBtn'),
   finalError: $('#finalError'),
@@ -84,12 +85,10 @@ function renderProductsSelect() {
   ].join('')
 
   els.productSelect.innerHTML = options
-  setHidden(els.noProductsHelp, products.length !== 0)
 }
 
 function renderCart() {
   const items = draft.items ?? []
-  setHidden(els.emptyCart, items.length !== 0)
 
   const rows = items
     .map(it => {
@@ -114,7 +113,11 @@ function renderCart() {
     .join('')
 
   els.cartList.innerHTML = rows
+  
+  draft = logic.recomputeOrder(draft)
+  
   setText(els.totalAmount, `${formatMoney(draft.totalAmount)} ${t('currency')}`)
+  setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
 
   els.addBtn.disabled = !canAddToCart()
   els.finalizeBtn.disabled = !customerIsValid
@@ -153,14 +156,26 @@ function renderCustomerOrders(customerOrders) {
         minute: '2-digit' 
       })
       const currency = t('currency')
+      const total = formatMoney(o.totalAmount ?? 0)
+      const deposit = formatMoney(o.deposit ?? 0)
+      const totalAmount = o.totalAmount ?? 0
+      const depositAmount = o.deposit ?? 0
+      const remainingAmount = o.remainingAmount !== undefined ? o.remainingAmount : (totalAmount - depositAmount)
+      const remaining = formatMoney(remainingAmount)
+      const isSettled = remainingAmount <= 0 && totalAmount > 0
       return `
-        <div class="item" style="margin-bottom: 8px">
+        <div class="item" style="margin-bottom: 8px" data-order-id="${escapeHtml(o.id)}">
           <div class="meta">
             <div class="title">${escapeHtml(o.customer?.lastName ?? '')}</div>
             <div class="sub">${escapeHtml(date)}</div>
             <div class="sub">${escapeHtml(itemText)}</div>
-            <div class="sub" style="color: var(--accent); margin-top: 4px">${formatMoney(o.totalAmount)} ${currency}</div>
+            <div class="sub" style="margin-top: 4px">
+              <span style="color: var(--accent)">Total: ${total} ${currency}</span>
+              ${(o.deposit ?? 0) > 0 ? `<span style="margin-left: 12px">Deposit: ${deposit} ${currency}</span>` : ''}
+            </div>
+            ${!isSettled ? `<div class="sub" style="color: var(--danger); margin-top: 4px; font-weight: 600">Remaining: ${remaining} ${currency}</div>` : '<div class="sub" style="color: var(--ok); margin-top: 4px">Settled</div>'}
           </div>
+          ${!isSettled ? `<div class="actions"><button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button></div>` : ''}
         </div>
       `
     })
@@ -298,6 +313,7 @@ function clearDraft() {
   els.searchPhone.value = ''
   els.productSelect.value = ''
   els.qtyInput.value = '1'
+  els.depositInput.value = '0'
   showCustomerError('')
   showCustomerOk('')
   showFinalError('')
@@ -311,6 +327,10 @@ function clearDraft() {
 function finalizeOrder() {
   showFinalError('')
   showFinalOk('')
+
+  const deposit = parseMoney(els.depositInput.value)
+  draft.deposit = deposit
+  draft = logic.recomputeOrder(draft)
 
   const res = validateFinalOrder(draft)
   if (!res.ok) return showFinalError(t(res.error) || res.error)
@@ -331,6 +351,7 @@ function finalizeOrder() {
   customerIsValid = false
   els.productSelect.value = ''
   els.qtyInput.value = '1'
+  els.depositInput.value = '0'
   showCustomerError('')
   showCustomerOk('')
   showFinalError('')
@@ -401,6 +422,48 @@ function refreshProducts() {
   renderCart()
 }
 
+function formatPriceInput(input) {
+  const cursorPos = input.selectionStart
+  const oldValue = input.value
+  const formatted = formatMoneyInput(input.value)
+  
+  if (formatted !== oldValue) {
+    input.value = formatted
+    const diff = formatted.length - oldValue.length
+    const newPos = Math.max(0, Math.min(cursorPos + diff, formatted.length))
+    input.setSelectionRange(newPos, newPos)
+  }
+}
+
+function onDepositChange() {
+  const depositValue = els.depositInput.value
+  const deposit = parseMoney(depositValue)
+  draft.deposit = deposit
+  draft = logic.recomputeOrder(draft)
+  setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
+}
+
+function onCustomerOrdersClick(e) {
+  const btn = e.target?.closest('button[data-action]')
+  if (!btn) return
+  const row = e.target?.closest('.item')
+  const orderId = row?.getAttribute('data-order-id')
+  if (!orderId) return
+
+  const action = btn.getAttribute('data-action')
+  if (action === 'settle') {
+    const order = orders.find(o => o.id === orderId)
+    if (!order) return
+    
+    order.deposit = order.totalAmount
+    order.remainingAmount = 0
+    saveOrders(orders)
+    
+    const foundOrders = findOrdersByPhone(order.customer.phone)
+    renderCustomerOrders(foundOrders)
+  }
+}
+
 function init() {
   ui.initI18n()
   
@@ -411,9 +474,18 @@ function init() {
 
   els.lastName.addEventListener('input', onCustomerChange)
   els.phone.addEventListener('input', onCustomerChange)
+  els.depositInput.addEventListener('input', (e) => {
+    formatPriceInput(e.target)
+    onDepositChange()
+  })
+  els.depositInput.addEventListener('blur', () => {
+    els.depositInput.value = formatMoneyInput(els.depositInput.value)
+    onDepositChange()
+  })
   els.addBtn.addEventListener('click', onAddToCart)
   els.cartList.addEventListener('click', onCartClick)
   els.cartList.addEventListener('input', onCartInput)
+  els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
   els.clearDraftBtn.addEventListener('click', clearDraft)
   els.finalizeBtn.addEventListener('click', finalizeOrder)
 

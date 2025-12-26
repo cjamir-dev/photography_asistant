@@ -93,7 +93,16 @@
   function formatMoney(n) {
     const x = Number(n ?? 0)
     const safe = Number.isFinite(x) ? x : 0
-    return safe.toLocaleString('fa-IR')
+    return safe.toLocaleString('en-US')
+  }
+
+  function formatMoneyInput(value) {
+    const raw = String(value ?? '').trim()
+    if (!raw) return ''
+    const normalized = raw.replace(/[,\s]/g, '')
+    const num = Number(normalized)
+    if (!Number.isFinite(num)) return raw
+    return num.toLocaleString('en-US')
   }
 
   function createProduct({ name, price, description, imageDataUrl }) {
@@ -143,6 +152,8 @@
       },
       items: [],
       totalAmount: 0,
+      deposit: 0,
+      remainingAmount: 0,
       createdAt: nowIso()
     }
   }
@@ -171,6 +182,9 @@
       return { ...it, quantity: qty, unitPrice: unit, totalPrice: rowTotal }
     })
     next.totalAmount = total
+    const deposit = parseMoney(next.deposit ?? 0)
+    next.deposit = deposit
+    next.remainingAmount = Math.max(0, total - deposit)
     return next
   }
 
@@ -311,7 +325,8 @@
       escapeHtml,
       readFileAsDataUrl,
       initI18n
-    }
+    },
+    formatMoneyInput
   }
   
   if (document.readyState === 'loading') {

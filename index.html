@@ -11,7 +11,6 @@
       <div class="topbar">
         <div class="brand">
           <h1 data-i18n="orderTitle"></h1>
-          <div class="sub" data-i18n="orderSubtitle"></div>
         </div>
         <div class="nav">
           <a class="btn" href="./products.html" data-i18n="navProducts"></a>
@@ -21,17 +20,16 @@
       <div class="grid">
         <div class="card">
           <h2 data-i18n="orderTitle"></h2>
-          <div class="help" style="margin-bottom: 24px" data-i18n="orderSubtitle"></div>
           <h3 data-i18n="customerInfo"></h3>
 
           <div class="row">
             <label>
               <span data-i18n="customerLastName"></span>
-              <input id="cLastName" data-i18n-placeholder="customerLastNamePlaceholder" />
+              <input id="cLastName" />
             </label>
             <label>
               <span data-i18n="customerPhone"></span>
-              <input id="cPhone" inputmode="tel" data-i18n-placeholder="customerPhonePlaceholder" />
+              <input id="cPhone" inputmode="tel" />
             </label>
           </div>
 
@@ -54,15 +52,22 @@
             <button class="btn primary" id="addBtn" type="button" data-i18n="addToCart"></button>
           </div>
 
-          <div class="help" id="noProductsHelp" style="display: none; margin-top: 10px" data-i18n="noProductsHelp"></div>
-
           <div class="list" id="cartList" style="margin-top: 12px"></div>
-          <div class="help" id="emptyCart" style="display: none; margin-top: 10px" data-i18n="emptyCart"></div>
 
           <div class="totals">
             <div class="line">
               <span data-i18n="totalAmount"></span>
               <span id="totalAmount">0</span>
+            </div>
+            <div class="row" style="margin-top: 16px">
+              <label>
+                <span data-i18n="deposit"></span>
+                <input id="depositInput" inputmode="numeric" type="text" value="0" />
+              </label>
+            </div>
+            <div class="line" style="margin-top: 12px">
+              <span data-i18n="remainingAmount"></span>
+              <span id="remainingAmount" style="color: var(--danger)">0</span>
             </div>
           </div>
 
@@ -80,7 +85,7 @@
           <div class="row">
             <label>
               <span data-i18n="searchPhone"></span>
-              <input id="searchPhone" inputmode="tel" data-i18n-placeholder="searchPhonePlaceholder" />
+              <input id="searchPhone" inputmode="tel" />
             </label>
             <div style="display: flex; align-items: flex-end">
               <button class="btn primary" id="searchBtn" type="button" style="width: 100%" data-i18n="searchConfirm"></button>
