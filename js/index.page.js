@@ -30,6 +30,7 @@ const els = {
 
   productSelect: $('#productSelect'),
   qtyInput: $('#qtyInput'),
+  itemTotalInput: $('#itemTotalInput'),
   addBtn: $('#addBtn'),
 
   cartList: $('#cartList'),
@@ -95,7 +96,7 @@ function renderProductsSelect() {
     ...products
       .slice()
       .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
-      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} — ${formatMoney(p.price)} ${t('currency')}</option>`)
+      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
   ].join('')
 
   els.productSelect.innerHTML = options
@@ -135,16 +136,39 @@ function renderCart() {
 
   els.productSelect.disabled = !customerIsValid
   els.qtyInput.disabled = !customerIsValid
+  els.itemTotalInput.disabled = !customerIsValid
   els.addBtn.disabled = !canAddToCart()
   els.depositInput.disabled = !customerIsValid
   els.finalizeBtn.disabled = !customerIsValid
   els.clearDraftBtn.disabled = !customerIsValid
   
+  updateItemTotal()
+  
   if (!customerIsValid) {
     els.productSelect.value = ''
     els.qtyInput.value = '1'
     els.depositInput.value = '0'
+    els.itemTotalInput.value = ''
   }
+}
+
+function updateItemTotal() {
+  const productId = els.productSelect.value
+  const qty = parseQty(els.qtyInput.value)
+  
+  if (!productId || qty <= 0) {
+    els.itemTotalInput.value = ''
+    return
+  }
+  
+  const product = products.find(p => p.id === productId)
+  if (!product) {
+    els.itemTotalInput.value = ''
+    return
+  }
+  
+  const total = product.price * qty
+  els.itemTotalInput.value = `${formatMoney(total)} ${t('currency')}`
 }
 
 function findOrdersByPhone(phone) {
@@ -264,6 +288,7 @@ function onCustomerChange() {
     
     els.productSelect.disabled = true
     els.qtyInput.disabled = true
+    els.itemTotalInput.disabled = true
     els.addBtn.disabled = true
     els.depositInput.disabled = true
     els.clearDraftBtn.disabled = true
@@ -279,6 +304,7 @@ function onCustomerChange() {
   
   els.productSelect.disabled = false
   els.qtyInput.disabled = false
+  els.itemTotalInput.disabled = false
   els.addBtn.disabled = false
   els.depositInput.disabled = false
   els.clearDraftBtn.disabled = false
@@ -351,6 +377,7 @@ function clearDraft() {
   els.searchPhone.value = ''
   els.productSelect.value = ''
   els.qtyInput.value = '1'
+  els.itemTotalInput.value = ''
   els.depositInput.value = '0'
   showCustomerError('')
   showCustomerOk('')
@@ -362,6 +389,7 @@ function clearDraft() {
   
   els.productSelect.disabled = true
   els.qtyInput.disabled = true
+  els.itemTotalInput.disabled = true
   els.addBtn.disabled = true
   els.depositInput.disabled = true
   els.clearDraftBtn.disabled = true
@@ -396,6 +424,7 @@ async function finalizeOrder() {
   customerIsValid = false
   els.productSelect.value = ''
   els.qtyInput.value = '1'
+  els.itemTotalInput.value = ''
   els.depositInput.value = '0'
   showCustomerError('')
   showCustomerOk('')
@@ -561,6 +590,8 @@ async function init() {
 
   els.lastName.addEventListener('input', onCustomerChange)
   els.phone.addEventListener('input', onCustomerChange)
+  els.productSelect.addEventListener('change', updateItemTotal)
+  els.qtyInput.addEventListener('input', updateItemTotal)
   els.depositInput.addEventListener('input', (e) => {
     formatPriceInput(e.target)
     onDepositChange()
@@ -581,6 +612,7 @@ async function init() {
 
   els.productSelect.disabled = true
   els.qtyInput.disabled = true
+  els.itemTotalInput.disabled = true
   els.addBtn.disabled = true
   els.depositInput.disabled = true
   els.clearDraftBtn.disabled = true

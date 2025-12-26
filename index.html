@@ -40,16 +40,20 @@
 
           <h3 class="mt-xl" data-i18n="cartTitle"></h3>
 
-          <div class="inline">
-            <label>
+          <div class="inline cart-controls">
+            <label class="product-select-label">
               <span data-i18n="selectProduct"></span>
               <select id="productSelect">
                 <option value=""></option>
               </select>
             </label>
-            <label>
+            <label class="quantity-label">
               <span data-i18n="quantity"></span>
               <input id="qtyInput" inputmode="numeric" value="1" type="number" min="1" step="1" />
+            </label>
+            <label class="item-total-label">
+              <span data-i18n="itemTotal"></span>
+              <input id="itemTotalInput" type="text" readonly style="background: var(--panel); cursor: not-allowed;" />
             </label>
             <button class="btn primary" id="addBtn" type="button" data-i18n="addToCart"></button>
           </div>

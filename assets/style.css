@@ -497,6 +497,41 @@ textarea:not([rows]) {
   flex-direction: row-reverse;
 }
 
+.cart-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.cart-controls .product-select-label {
+  flex: 1;
+  min-width: 200px;
+}
+
+.cart-controls .quantity-label {
+  flex: 0 0 auto;
+  width: 120px;
+}
+
+.cart-controls .quantity-label input {
+  width: 100%;
+}
+
+.cart-controls .item-total-label {
+  flex: 0 0 auto;
+  width: 150px;
+}
+
+.cart-controls .item-total-label input {
+  width: 100%;
+}
+
+.cart-controls .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 [dir="rtl"] .error,
 [dir="rtl"] .ok {
   border-left: none;

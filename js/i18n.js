@@ -21,6 +21,7 @@
     cartTitle: 'Customer Cart',
     selectProduct: 'Select Product',
     quantity: 'Quantity',
+    itemTotal: 'Item Total',
     addToCart: 'Add to Cart',
     emptyCart: 'Cart is empty',
     totalAmount: 'Total Amount',
