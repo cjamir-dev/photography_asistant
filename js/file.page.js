@@ -21,7 +21,6 @@ const els = {
   importProductsOk: $('#importProductsOk'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
-  settingsBtn: $('#settingsBtn'),
   logoutBtn: $('#logoutBtn')
 }
 
@@ -125,18 +124,6 @@ async function importProducts() {
   }
 }
 
-function handleSettings() {
-  const { theme } = window.PhotoTools
-  if (theme) {
-    const newTheme = theme.toggle()
-    const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
-    showOk(els.exportOrdersOk, `${themeName} activated`)
-    setTimeout(() => {
-      showOk(els.exportOrdersOk, '')
-    }, 2000)
-  }
-}
-
 function handleLogout() {
   if (confirm('Are you sure you want to logout?')) {
     localStorage.removeItem('isAuthenticated')
@@ -167,7 +154,6 @@ async function init() {
   els.exportProductsBtn.addEventListener('click', exportProducts)
   els.importProductsBtn.addEventListener('click', importProducts)
   els.importProductsFile.addEventListener('change', importProducts)
-  els.settingsBtn.addEventListener('click', handleSettings)
   els.logoutBtn.addEventListener('click', handleLogout)
   
   if (els.sidebarToggle && els.sidebar) {

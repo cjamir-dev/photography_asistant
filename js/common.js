@@ -384,7 +384,14 @@
   }
 
   function getTheme() {
-    return document.documentElement.getAttribute('data-theme') || 'light'
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    const currentTheme = document.documentElement.getAttribute('data-theme') || savedTheme
+    // اطمینان از هماهنگی
+    if (currentTheme !== savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme)
+      return savedTheme
+    }
+    return currentTheme
   }
 
   window.PhotoTools = {

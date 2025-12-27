@@ -44,7 +44,6 @@ const els = {
 
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
-  settingsBtn: $('#settingsBtn'),
   logoutBtn: $('#logoutBtn')
 }
 
@@ -573,17 +572,6 @@ async function init() {
   els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
   els.clearDraftBtn.addEventListener('click', clearDraft)
   els.finalizeBtn.addEventListener('click', finalizeOrder)
-  if (els.settingsBtn) {
-    els.settingsBtn.addEventListener('click', () => {
-      const { theme } = window.PhotoTools
-      const newTheme = theme.toggle()
-      const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
-      showFinalOk(`${themeName} activated`)
-      setTimeout(() => {
-        showFinalOk('')
-      }, 2000)
-    })
-  }
   
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {

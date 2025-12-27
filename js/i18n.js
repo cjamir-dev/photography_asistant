@@ -3,6 +3,7 @@
     // Page titles
     pageOrder: 'Order Registration',
     pageProducts: 'Product Management',
+    pageSettings: 'Settings',
     
     // Navigation
     navProducts: 'Manage Products',
@@ -114,7 +115,21 @@
     exportOrdersHelp: 'Export all orders to a JSON file',
     importOrdersHelp: 'Import orders from a JSON file',
     exportProductsHelp: 'Export all products to a JSON file',
-    importProductsHelp: 'Import products from a JSON file'
+    importProductsHelp: 'Import products from a JSON file',
+    
+    // Settings page
+    settingsTitle: 'Settings',
+    appearanceSettings: 'Appearance',
+    colorMode: 'Color Mode',
+    lightMode: 'Light Mode',
+    darkMode: 'Dark Mode',
+    colorModeHelp: 'Choose your preferred color theme for the application',
+    otherSettings: 'Other Settings',
+    settingsNote: 'More settings will be available in future updates',
+    activated: 'activated',
+    saved: 'saved successfully',
+    saveSettings: 'Save Settings',
+    logoutConfirm: 'Are you sure you want to logout?'
   }
   
   window.i18n = {

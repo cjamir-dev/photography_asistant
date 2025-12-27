@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title data-i18n="navFile">File</title>
+    <title data-i18n="pageSettings">Settings</title>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
     <div class="app">
       <div class="topbar">
         <div class="brand">
-          <h1 data-i18n="navFile"></h1>
+          <h1 data-i18n="settingsTitle"></h1>
         </div>
       </div>
 
@@ -23,7 +23,7 @@
                 <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
                 <path d="M10 22H22V24H10V22Z" fill="white"/>
               </svg>
-              <span class="sidebar-logo-text" data-i18n="navFile"></span>
+              <span class="sidebar-logo-text" data-i18n="settingsTitle"></span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,10 +50,17 @@
               </svg>
               <span class="sidebar-text" data-i18n="navProducts"></span>
             </a>
+            <a class="sidebar-item" href="./file.html" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.83333 3.33333H11.6667L15.8333 7.5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5C4.16667 4.55797 4.34226 4.13405 4.65482 3.82149C4.96738 3.50893 5.39131 3.33333 5.83333 3.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M11.6667 3.33333V8.33333H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="navFile"></span>
+            </a>
           </nav>
           <div class="sidebar-separator"></div>
           <nav class="sidebar-menu sidebar-menu-bottom">
-            <a class="sidebar-item" href="./settings.html" data-tooltip="">
+            <a class="sidebar-item active" href="./settings.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M15.6067 12.6067L15.6067 12.6067C15.7972 12.7972 15.7972 13.1028 15.6067 13.2933L13.2933 15.6067C13.1028 15.7972 12.7972 15.7972 12.6067 15.6067L12.6067 15.6067C12.4162 15.4162 12.4162 15.1106 12.6067 14.9201L14.9201 12.6067C15.1106 12.4162 15.4162 12.4162 15.6067 12.6067Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -74,39 +81,35 @@
           </nav>
         </aside>
 
-        <div class="grid file-grid">
+        <div class="grid">
           <div class="card">
-            <h2 data-i18n="exportOrders"></h2>
-            <p class="help" data-i18n="exportOrdersHelp"></p>
-            <button class="btn primary" id="exportOrdersBtn" type="button" data-i18n="exportOrders"></button>
-            <div class="error" id="exportOrdersError" style="display: none"></div>
-            <div class="ok" id="exportOrdersOk" style="display: none"></div>
+            <h2 data-i18n="appearanceSettings"></h2>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="colorMode"></span>
+                <select id="themeSelect">
+                  <option value="light" data-i18n="lightMode"></option>
+                  <option value="dark" data-i18n="darkMode"></option>
+                </select>
+              </label>
+              <p class="help" data-i18n="colorModeHelp"></p>
+            </div>
+            
+            <div class="split mt-lg">
+              <button class="btn primary" id="saveSettingsBtn" type="button" data-i18n="saveSettings"></button>
+            </div>
+            
+            <div class="error" id="settingsError" style="display: none"></div>
+            <div class="ok" id="settingsOk" style="display: none"></div>
           </div>
 
           <div class="card">
-            <h2 data-i18n="importOrders"></h2>
-            <p class="help" data-i18n="importOrdersHelp"></p>
-            <input type="file" id="importOrdersFile" accept=".json" style="display: none" />
-            <button class="btn primary" id="importOrdersBtn" type="button" data-i18n="importOrders"></button>
-            <div class="error" id="importOrdersError" style="display: none"></div>
-            <div class="ok" id="importOrdersOk" style="display: none"></div>
-          </div>
-
-          <div class="card">
-            <h2 data-i18n="exportProducts"></h2>
-            <p class="help" data-i18n="exportProductsHelp"></p>
-            <button class="btn primary" id="exportProductsBtn" type="button" data-i18n="exportProducts"></button>
-            <div class="error" id="exportProductsError" style="display: none"></div>
-            <div class="ok" id="exportProductsOk" style="display: none"></div>
-          </div>
-
-          <div class="card">
-            <h2 data-i18n="importProducts"></h2>
-            <p class="help" data-i18n="importProductsHelp"></p>
-            <input type="file" id="importProductsFile" accept=".json" style="display: none" />
-            <button class="btn primary" id="importProductsBtn" type="button" data-i18n="importProducts"></button>
-            <div class="error" id="importProductsError" style="display: none"></div>
-            <div class="ok" id="importProductsOk" style="display: none"></div>
+            <h2 data-i18n="otherSettings"></h2>
+            
+            <div class="settings-section">
+              <p class="help" data-i18n="settingsNote"></p>
+            </div>
           </div>
         </div>
       </div>
@@ -114,7 +117,7 @@
 
     <script src="./js/i18n.js"></script>
     <script src="./js/common.js"></script>
-    <script src="./js/file.page.js"></script>
+    <script src="./js/settings.page.js"></script>
   </body>
 </html>
 

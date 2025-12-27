@@ -18,7 +18,6 @@ const els = {
   countPill: null,
   sidebar: null,
   sidebarToggle: null,
-  settingsBtn: null,
   logoutBtn: null
 }
 
@@ -61,7 +60,6 @@ function initElements() {
   els.countPill = $('#countPill')
   els.sidebar = $('#sidebar')
   els.sidebarToggle = $('#sidebarToggle')
-  els.settingsBtn = $('#settingsBtn')
   els.logoutBtn = $('#logoutBtn')
   
   return true
@@ -302,17 +300,6 @@ async function init() {
     })
     els.resetBtn.addEventListener('click', resetForm)
     els.productsList.addEventListener('click', onListClick)
-    if (els.settingsBtn) {
-      els.settingsBtn.addEventListener('click', () => {
-        const { theme } = window.PhotoTools
-        const newTheme = theme.toggle()
-        const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
-        showOk(`${themeName} activated`)
-        setTimeout(() => {
-          showOk('')
-        }, 2000)
-      })
-    }
     
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener('click', () => {
