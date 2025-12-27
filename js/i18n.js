@@ -9,7 +9,7 @@
     navBack: 'Back to Orders',
     
     // Order page
-    orderTitle: 'Order Registration',
+    orderTitle: 'Orders',
     orderSubtitle: 'Last Name + Mobile → Add Product to Cart → Finalize Order',
     customerInfo: 'Customer Information',
     customerLastName: 'Last Name',
@@ -40,7 +40,7 @@
     previousOrders: 'Previous Orders for This Customer',
     
     // Products page
-    productsTitle: 'Product Management',
+    productsTitle: 'Products',
     productsSubtitle: 'Create/Edit/Delete Products — Saved in Browser',
     addEditProduct: 'Add / Edit Product',
     productName: 'Product Name',

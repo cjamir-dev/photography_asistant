@@ -612,26 +612,28 @@ async function init() {
   els.importOrdersBtn.addEventListener('click', importOrders)
   els.importOrdersFile.addEventListener('change', importOrders)
   
-  els.sidebarToggle.addEventListener('click', () => {
-    els.sidebar.classList.toggle('collapsed')
-    const isCollapsed = els.sidebar.classList.contains('collapsed')
-    localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
-  })
-  
-  const savedState = localStorage.getItem('sidebarCollapsed')
-  if (savedState === 'true') {
-    els.sidebar.classList.add('collapsed')
-  }
-  
-  // Set tooltips for sidebar items
-  const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
-  sidebarItems.forEach(item => {
-    const textSpan = item.querySelector('.sidebar-text')
-    if (textSpan && textSpan.hasAttribute('data-i18n')) {
-      const i18nKey = textSpan.getAttribute('data-i18n')
-      item.setAttribute('data-tooltip', t(i18nKey))
+  if (els.sidebarToggle && els.sidebar) {
+    els.sidebarToggle.addEventListener('click', () => {
+      els.sidebar.classList.toggle('collapsed')
+      const isCollapsed = els.sidebar.classList.contains('collapsed')
+      localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
+    })
+    
+    const savedState = localStorage.getItem('sidebarCollapsed')
+    if (savedState === 'true') {
+      els.sidebar.classList.add('collapsed')
     }
-  })
+    
+    // Set tooltips for sidebar items
+    const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
+    sidebarItems.forEach(item => {
+      const textSpan = item.querySelector('.sidebar-text')
+      if (textSpan && textSpan.hasAttribute('data-i18n')) {
+        const i18nKey = textSpan.getAttribute('data-i18n')
+        item.setAttribute('data-tooltip', t(i18nKey))
+      }
+    })
+  }
 
   els.productSelect.disabled = true
   els.qtyInput.disabled = true

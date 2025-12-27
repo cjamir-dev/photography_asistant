@@ -39,9 +39,10 @@ body {
 }
 
 .app {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 40px 20px;
+  width: 100%;
 }
 
 .topbar {
@@ -142,6 +143,7 @@ body {
 
 .sidebar {
   flex: 0 0 280px;
+  max-width: 280px;
   position: sticky;
   top: 20px;
   background: var(--panel);
@@ -156,7 +158,13 @@ body {
 
 .sidebar.collapsed {
   flex: 0 0 88px;
-  padding: 20px 16px;
+  max-width: 88px;
+  padding: 20px 12px;
+  overflow: hidden;
+}
+
+.sidebar-menu {
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -167,6 +175,8 @@ body {
   padding-bottom: 24px;
   border-bottom: 1px solid var(--border-light);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: visible;
 }
 
 .sidebar-logo {
@@ -175,6 +185,8 @@ body {
   gap: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar-logo svg {
@@ -208,6 +220,10 @@ body {
   white-space: nowrap;
   transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   letter-spacing: -0.011em;
+  max-width: 155px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
 }
 
 .sidebar-toggle {
@@ -368,6 +384,8 @@ body {
   margin-bottom: 20px;
   position: relative;
   min-height: 36px;
+  overflow: visible;
+  width: 100%;
 }
 
 .sidebar.collapsed .sidebar-toggle {
@@ -375,12 +393,18 @@ body {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
+  margin: 0;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  box-sizing: border-box;
 }
 
 [dir="rtl"] .sidebar.collapsed .sidebar-toggle {
   left: 50%;
   right: auto;
   transform: translateX(-50%);
+  margin: 0;
 }
 
 .grid {
@@ -388,6 +412,18 @@ body {
   grid-template-columns: 1.2fr 0.8fr;
   gap: 30px;
   flex: 1;
+  min-width: 0;
+}
+
+.grid .card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -405,6 +441,7 @@ body {
   .sidebar.collapsed {
     flex: 0 0 auto;
     width: 100%;
+    max-width: 100%;
   }
   
   .sidebar-menu {
@@ -442,14 +479,20 @@ body {
     width: auto;
   }
   
+  .sidebar.collapsed .sidebar-header {
+    overflow: visible;
+  }
+  
   .sidebar.collapsed .sidebar-toggle {
     position: static;
     transform: none;
+    margin: 0 auto;
   }
   
   [dir="rtl"] .sidebar.collapsed .sidebar-toggle {
     position: static;
     transform: none;
+    margin: 0 auto;
   }
   
   .sidebar.collapsed .sidebar-item:hover::after {
@@ -475,6 +518,8 @@ body {
   padding: 24px;
   box-shadow: var(--shadow);
   transition: box-shadow 0.3s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 @media (hover: hover) {
