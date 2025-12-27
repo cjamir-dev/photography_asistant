@@ -18,7 +18,9 @@ const els = {
   countPill: null,
   exportProductsBtn: null,
   importProductsBtn: null,
-  importProductsFile: null
+  importProductsFile: null,
+  sidebar: null,
+  sidebarToggle: null
 }
 
 function initElements() {
@@ -61,6 +63,8 @@ function initElements() {
   els.exportProductsBtn = $('#exportProductsBtn')
   els.importProductsBtn = $('#importProductsBtn')
   els.importProductsFile = $('#importProductsFile')
+  els.sidebar = $('#sidebar')
+  els.sidebarToggle = $('#sidebarToggle')
   
   return true
 }
@@ -341,6 +345,29 @@ async function init() {
     els.exportProductsBtn.addEventListener('click', exportProducts)
     els.importProductsBtn.addEventListener('click', importProducts)
     els.importProductsFile.addEventListener('change', importProducts)
+    
+    if (els.sidebarToggle && els.sidebar) {
+      els.sidebarToggle.addEventListener('click', () => {
+        els.sidebar.classList.toggle('collapsed')
+        const isCollapsed = els.sidebar.classList.contains('collapsed')
+        localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
+      })
+      
+      const savedState = localStorage.getItem('sidebarCollapsed')
+      if (savedState === 'true') {
+        els.sidebar.classList.add('collapsed')
+      }
+      
+      // Set tooltips for sidebar items
+      const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
+      sidebarItems.forEach(item => {
+        const textSpan = item.querySelector('.sidebar-text')
+        if (textSpan && textSpan.hasAttribute('data-i18n')) {
+          const i18nKey = textSpan.getAttribute('data-i18n')
+          item.setAttribute('data-tooltip', t(i18nKey))
+        }
+      })
+    }
 
     els.price.addEventListener('input', (e) => {
       formatPriceInput(e.target)

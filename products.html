@@ -12,14 +12,48 @@
         <div class="brand">
           <h1 data-i18n="productsTitle"></h1>
         </div>
-        <div class="nav">
-          <button class="btn" id="exportProductsBtn" type="button" data-i18n="exportProducts"></button>
-          <button class="btn" id="importProductsBtn" type="button" data-i18n="importProducts"></button>
-          <a class="btn" href="./index.html" data-i18n="navBack"></a>
-        </div>
       </div>
 
-      <div class="grid">
+      <div class="main-layout">
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-logo">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="32" rx="8" fill="var(--accent)"/>
+                <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
+                <path d="M10 22H22V24H10V22Z" fill="white"/>
+              </svg>
+              <span class="sidebar-logo-text" data-i18n="productsTitle"></span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 4H18M2 10H18M2 16H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <nav class="sidebar-menu">
+            <button class="sidebar-item" id="exportProductsBtn" type="button" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.5 12.5V15.8333C17.5 16.2754 17.3244 16.6993 17.0118 17.0118C16.6993 17.3244 16.2754 17.5 15.8333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V12.5M14.1667 8.33333L10 4.16667M10 4.16667L5.83333 8.33333M10 4.16667V12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="exportProducts"></span>
+            </button>
+            <button class="sidebar-item" id="importProductsBtn" type="button" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.5 7.5V4.16667C17.5 3.72464 17.3244 3.30072 17.0118 2.98816C16.6993 2.67559 16.2754 2.5 15.8333 2.5H4.16667C3.72464 2.5 3.30072 2.67559 2.98816 2.98816C2.67559 3.30072 2.5 3.72464 2.5 4.16667V7.5M14.1667 11.6667L10 15.8333M10 15.8333L5.83333 11.6667M10 15.8333V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="importProducts"></span>
+            </button>
+            <a class="sidebar-item" href="./index.html" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="navBack"></span>
+            </a>
+          </nav>
+        </aside>
+
+        <div class="grid">
         <div class="card">
           <h2 data-i18n="addEditProduct"></h2>
 
@@ -63,6 +97,7 @@
           </div>
 
           <div class="list mt-md" id="productsList"></div>
+        </div>
         </div>
       </div>
     </div>
