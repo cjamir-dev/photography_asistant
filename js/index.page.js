@@ -575,7 +575,13 @@ async function init() {
   els.finalizeBtn.addEventListener('click', finalizeOrder)
   if (els.settingsBtn) {
     els.settingsBtn.addEventListener('click', () => {
-      alert('Settings feature coming soon!')
+      const { theme } = window.PhotoTools
+      const newTheme = theme.toggle()
+      const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
+      showFinalOk(`${themeName} activated`)
+      setTimeout(() => {
+        showFinalOk('')
+      }, 2000)
     })
   }
   

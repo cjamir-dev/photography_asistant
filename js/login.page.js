@@ -42,6 +42,11 @@ function handleLogin(e) {
 }
 
 function init() {
+  // Initialize theme
+  if (window.PhotoTools && window.PhotoTools.theme) {
+    window.PhotoTools.theme.init()
+  }
+  
   checkAuth()
   els.loginForm.addEventListener('submit', handleLogin)
   

@@ -126,7 +126,15 @@ async function importProducts() {
 }
 
 function handleSettings() {
-  alert('Settings feature coming soon!')
+  const { theme } = window.PhotoTools
+  if (theme) {
+    const newTheme = theme.toggle()
+    const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
+    showOk(els.exportOrdersOk, `${themeName} activated`)
+    setTimeout(() => {
+      showOk(els.exportOrdersOk, '')
+    }, 2000)
+  }
 }
 
 function handleLogout() {

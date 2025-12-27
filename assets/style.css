@@ -17,6 +17,22 @@
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
+[data-theme="dark"] {
+  --bg: #000000;
+  --panel: #1c1c1e;
+  --text: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --muted: rgba(235, 235, 245, 0.4);
+  --border: #38383a;
+  --border-light: #2c2c2e;
+  --danger: #ff453a;
+  --ok: #32d74b;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -283,6 +299,10 @@ body {
 .btn:hover:not(:disabled) {
   background: #424245;
   transform: translateY(-1px);
+}
+
+[data-theme="dark"] .btn:hover:not(:disabled) {
+  background: #48484a;
 }
 
 .btn:active:not(:disabled) {
@@ -1121,6 +1141,34 @@ textarea:not([rows]) {
 
 [dir="rtl"] .sidebar-logo {
   flex-direction: row-reverse;
+}
+
+/* Dark mode specific adjustments */
+[data-theme="dark"] .login-image {
+  background: linear-gradient(135deg, #1c1c1e 0%, #000000 100%);
+}
+
+[data-theme="dark"] .login-image-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] input:disabled,
+[data-theme="dark"] select:disabled,
+[data-theme="dark"] textarea:disabled {
+  background: #2c2c2e;
+  color: rgba(235, 235, 245, 0.4);
+}
+
+[data-theme="dark"] .scrollable-orders::-webkit-scrollbar-track {
+  background: #1c1c1e;
+}
+
+[data-theme="dark"] .scrollable-orders::-webkit-scrollbar-thumb {
+  background: #38383a;
+}
+
+[data-theme="dark"] .scrollable-orders::-webkit-scrollbar-thumb:hover {
+  background: #48484a;
 }
 
 /* Search button wrapper */

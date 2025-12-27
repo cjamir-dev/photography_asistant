@@ -370,6 +370,23 @@
     })
   }
 
+  function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    document.documentElement.setAttribute('data-theme', savedTheme)
+  }
+
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', newTheme)
+    localStorage.setItem('theme', newTheme)
+    return newTheme
+  }
+
+  function getTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'light'
+  }
+
   window.PhotoTools = {
     storage: {
       loadProducts,
@@ -408,13 +425,22 @@
       readFileAsDataUrl,
       initI18n
     },
+    theme: {
+      init: initTheme,
+      toggle: toggleTheme,
+      get: getTheme
+    },
     formatMoneyInput
   }
   
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initI18n)
+    document.addEventListener('DOMContentLoaded', () => {
+      initI18n()
+      initTheme()
+    })
   } else {
     initI18n()
+    initTheme()
   }
 })()
 

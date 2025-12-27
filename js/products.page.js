@@ -304,7 +304,13 @@ async function init() {
     els.productsList.addEventListener('click', onListClick)
     if (els.settingsBtn) {
       els.settingsBtn.addEventListener('click', () => {
-        alert('Settings feature coming soon!')
+        const { theme } = window.PhotoTools
+        const newTheme = theme.toggle()
+        const themeName = newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'
+        showOk(`${themeName} activated`)
+        setTimeout(() => {
+          showOk('')
+        }, 2000)
       })
     }
     
