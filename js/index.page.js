@@ -42,11 +42,10 @@ const els = {
   finalError: $('#finalError'),
   finalOk: $('#finalOk'),
 
-  exportOrdersBtn: $('#exportOrdersBtn'),
-  importOrdersBtn: $('#importOrdersBtn'),
-  importOrdersFile: $('#importOrdersFile'),
   sidebar: $('#sidebar'),
-  sidebarToggle: $('#sidebarToggle')
+  sidebarToggle: $('#sidebarToggle'),
+  settingsBtn: $('#settingsBtn'),
+  logoutBtn: $('#logoutBtn')
 }
 
 let products = []
@@ -540,49 +539,15 @@ async function onCustomerOrdersClick(e) {
   }
 }
 
-function exportOrders() {
-  if (orders.length === 0) {
-    alert('No orders to export')
-    return
-  }
-  const date = new Date().toISOString().slice(0, 10)
-  downloadJson(`orders_${date}.json`, orders)
-  showFinalOk(t('dataExported'))
-}
 
-async function importOrders() {
-  const file = els.importOrdersFile.files?.[0]
-  if (!file) {
-    els.importOrdersFile.click()
+async function init() {
+  // Check authentication
+  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
+  if (!isAuthenticated) {
+    window.location.href = './login.html'
     return
   }
   
-  try {
-    const data = await readJsonFile(file)
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid data format')
-    }
-    
-    const confirmed = confirm(t('confirmImport'))
-    if (!confirmed) return
-    
-    orders = data
-    await saveOrders(orders)
-    
-    const foundOrders = findOrdersByPhone(els.searchPhone.value)
-    if (foundOrders.length > 0) {
-      renderCustomerOrders(foundOrders)
-    }
-    
-    showFinalOk(t('dataImported'))
-    els.importOrdersFile.value = ''
-  } catch (e) {
-    showFinalError(t('importError') + ': ' + (e.message || 'Unknown error'))
-    els.importOrdersFile.value = ''
-  }
-}
-
-async function init() {
   ui.initI18n()
   
   els.searchBtn.addEventListener('click', onSearchCustomer)
@@ -608,9 +573,21 @@ async function init() {
   els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
   els.clearDraftBtn.addEventListener('click', clearDraft)
   els.finalizeBtn.addEventListener('click', finalizeOrder)
-  els.exportOrdersBtn.addEventListener('click', exportOrders)
-  els.importOrdersBtn.addEventListener('click', importOrders)
-  els.importOrdersFile.addEventListener('change', importOrders)
+  if (els.settingsBtn) {
+    els.settingsBtn.addEventListener('click', () => {
+      alert('Settings feature coming soon!')
+    })
+  }
+  
+  if (els.logoutBtn) {
+    els.logoutBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('isAuthenticated')
+        localStorage.removeItem('username')
+        window.location.href = './login.html'
+      }
+    })
+  }
   
   if (els.sidebarToggle && els.sidebar) {
     els.sidebarToggle.addEventListener('click', () => {

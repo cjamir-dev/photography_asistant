@@ -16,11 +16,10 @@ const els = {
   formError: null,
   formOk: null,
   countPill: null,
-  exportProductsBtn: null,
-  importProductsBtn: null,
-  importProductsFile: null,
   sidebar: null,
-  sidebarToggle: null
+  sidebarToggle: null,
+  settingsBtn: null,
+  logoutBtn: null
 }
 
 function initElements() {
@@ -60,11 +59,10 @@ function initElements() {
   els.formError = $('#formError')
   els.formOk = $('#formOk')
   els.countPill = $('#countPill')
-  els.exportProductsBtn = $('#exportProductsBtn')
-  els.importProductsBtn = $('#importProductsBtn')
-  els.importProductsFile = $('#importProductsFile')
   els.sidebar = $('#sidebar')
   els.sidebarToggle = $('#sidebarToggle')
+  els.settingsBtn = $('#settingsBtn')
+  els.logoutBtn = $('#logoutBtn')
   
   return true
 }
@@ -264,44 +262,6 @@ function formatPriceInput(input) {
   }
 }
 
-function exportProducts() {
-  if (products.length === 0) {
-    alert('No products to export')
-    return
-  }
-  const date = new Date().toISOString().slice(0, 10)
-  downloadJson(`products_${date}.json`, products)
-  showOk(t('dataExported'))
-}
-
-async function importProducts(e) {
-  const file = els.importProductsFile.files?.[0]
-  if (!file) {
-    els.importProductsFile.click()
-    return
-  }
-  
-  try {
-    const data = await readJsonFile(file)
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid data format')
-    }
-    
-    const confirmed = confirm(t('confirmImport'))
-    if (!confirmed) return
-    
-    products = data
-    await saveProducts(products)
-    render()
-    resetForm()
-    showOk(t('dataImported'))
-    els.importProductsFile.value = ''
-  } catch (e) {
-    showError(t('importError') + ': ' + (e.message || 'Unknown error'))
-    els.importProductsFile.value = ''
-  }
-}
-
 async function init() {
   try {
     console.log('Initializing products page...')
@@ -342,9 +302,21 @@ async function init() {
     })
     els.resetBtn.addEventListener('click', resetForm)
     els.productsList.addEventListener('click', onListClick)
-    els.exportProductsBtn.addEventListener('click', exportProducts)
-    els.importProductsBtn.addEventListener('click', importProducts)
-    els.importProductsFile.addEventListener('change', importProducts)
+    if (els.settingsBtn) {
+      els.settingsBtn.addEventListener('click', () => {
+        alert('Settings feature coming soon!')
+      })
+    }
+    
+    if (els.logoutBtn) {
+      els.logoutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to logout?')) {
+          localStorage.removeItem('isAuthenticated')
+          localStorage.removeItem('username')
+          window.location.href = './login.html'
+        }
+      })
+    }
     
     if (els.sidebarToggle && els.sidebar) {
       els.sidebarToggle.addEventListener('click', () => {

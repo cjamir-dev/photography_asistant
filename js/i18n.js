@@ -6,10 +6,13 @@
     
     // Navigation
     navProducts: 'Manage Products',
-    navBack: 'Back to Orders',
+    navBack: 'Back to Dashboard',
+    navFile: 'File',
+    navSettings: 'Settings',
+    navLogout: 'Logout',
     
     // Order page
-    orderTitle: 'Orders',
+    orderTitle: 'Dashboard',
     orderSubtitle: 'Last Name + Mobile → Add Product to Cart → Finalize Order',
     customerInfo: 'Customer Information',
     customerLastName: 'Last Name',
@@ -107,7 +110,11 @@
     dataExported: 'Data exported successfully',
     dataImported: 'Data imported successfully',
     importError: 'Failed to import data',
-    confirmImport: 'This will replace all current data. Continue?'
+    confirmImport: 'This will replace all current data. Continue?',
+    exportOrdersHelp: 'Export all orders to a JSON file',
+    importOrdersHelp: 'Import orders from a JSON file',
+    exportProductsHelp: 'Export all products to a JSON file',
+    importProductsHelp: 'Import products from a JSON file'
   }
   
   window.i18n = {

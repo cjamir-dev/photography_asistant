@@ -32,24 +32,43 @@
             </button>
           </div>
           <nav class="sidebar-menu">
-            <button class="sidebar-item" id="exportProductsBtn" type="button" data-tooltip="">
-              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.5 12.5V15.8333C17.5 16.2754 17.3244 16.6993 17.0118 17.0118C16.6993 17.3244 16.2754 17.5 15.8333 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V12.5M14.1667 8.33333L10 4.16667M10 4.16667L5.83333 8.33333M10 4.16667V12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="sidebar-text" data-i18n="exportProducts"></span>
-            </button>
-            <button class="sidebar-item" id="importProductsBtn" type="button" data-tooltip="">
-              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.5 7.5V4.16667C17.5 3.72464 17.3244 3.30072 17.0118 2.98816C16.6993 2.67559 16.2754 2.5 15.8333 2.5H4.16667C3.72464 2.5 3.30072 2.67559 2.98816 2.98816C2.67559 3.30072 2.5 3.72464 2.5 4.16667V7.5M14.1667 11.6667L10 15.8333M10 15.8333L5.83333 11.6667M10 15.8333V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="sidebar-text" data-i18n="importProducts"></span>
-            </button>
             <a class="sidebar-item" href="./index.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.33333 5H16.6667M3.33333 10H16.6667M3.33333 15H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="13.3333" cy="5" r="1.66667" fill="currentColor"/>
+                <circle cx="13.3333" cy="10" r="1.66667" fill="currentColor"/>
+                <circle cx="13.3333" cy="15" r="1.66667" fill="currentColor"/>
               </svg>
-              <span class="sidebar-text" data-i18n="navBack"></span>
+              <span class="sidebar-text" data-i18n="orderTitle"></span>
             </a>
+            <a class="sidebar-item" href="./file.html" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5.83333 3.33333H11.6667L15.8333 7.5V16.6667C15.8333 17.1087 15.6577 17.5326 15.3452 17.8452C15.0326 18.1577 14.6087 18.3333 14.1667 18.3333H5.83333C5.39131 18.3333 4.96738 18.1577 4.65482 17.8452C4.34226 17.5326 4.16667 17.1087 4.16667 16.6667V5C4.16667 4.55797 4.34226 4.13405 4.65482 3.82149C4.96738 3.50893 5.39131 3.33333 5.83333 3.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M11.6667 3.33333V8.33333H15.8333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="navFile"></span>
+            </a>
+          </nav>
+          <div class="sidebar-separator"></div>
+          <nav class="sidebar-menu sidebar-menu-bottom">
+            <button class="sidebar-item" id="settingsBtn" type="button" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 12.5C11.3807 12.5 12.5 11.3807 12.5 10C12.5 8.61929 11.3807 7.5 10 7.5C8.61929 7.5 7.5 8.61929 7.5 10C7.5 11.3807 8.61929 12.5 10 12.5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.6067 12.6067L15.6067 12.6067C15.7972 12.7972 15.7972 13.1028 15.6067 13.2933L13.2933 15.6067C13.1028 15.7972 12.7972 15.7972 12.6067 15.6067L12.6067 15.6067C12.4162 15.4162 12.4162 15.1106 12.6067 14.9201L14.9201 12.6067C15.1106 12.4162 15.4162 12.4162 15.6067 12.6067Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4.39333 7.39333L4.39333 7.39333C4.58384 7.20284 4.58384 6.89716 4.39333 6.70667L6.70667 4.39333C6.89716 4.20284 7.20284 4.20284 7.39333 4.39333L7.39333 4.39333C7.58384 4.58384 7.58384 4.88944 7.39333 5.07995L5.07995 7.39333C4.88944 7.58384 4.58384 7.58384 4.39333 7.39333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.6067 7.39333L15.6067 7.39333C15.4162 7.20284 15.1106 7.20284 14.9201 7.39333L12.6067 9.70667C12.4162 9.89716 12.4162 10.2028 12.6067 10.3933L12.6067 10.3933C12.7972 10.5838 13.1028 10.5838 13.2933 10.3933L15.6067 8.08C15.7972 7.88944 15.7972 7.58384 15.6067 7.39333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4.39333 12.6067L4.39333 12.6067C4.58384 12.7972 4.88944 12.7972 5.07995 12.6067L7.39333 10.2933C7.58384 10.1028 7.58384 9.79716 7.39333 9.60667L7.39333 9.60667C7.20284 9.41616 6.89716 9.41616 6.70667 9.60667L4.39333 11.92C4.20284 12.1106 4.20284 12.4162 4.39333 12.6067Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="navSettings"></span>
+            </button>
+            <button class="sidebar-item" id="logoutBtn" type="button" data-tooltip="">
+              <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7.5 17.5H4.16667C3.72464 17.5 3.30072 17.3244 2.98816 17.0118C2.67559 16.6993 2.5 16.2754 2.5 15.8333V4.16667C2.5 3.72464 2.67559 3.30072 2.98816 2.98816C3.30072 2.67559 3.72464 2.5 4.16667 2.5H7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M13.3333 14.1667L17.5 10L13.3333 5.83333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M17.5 10H7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="sidebar-text" data-i18n="navLogout"></span>
+            </button>
           </nav>
         </aside>
 
@@ -102,7 +121,6 @@
       </div>
     </div>
 
-    <input type="file" id="importProductsFile" accept=".json" style="display: none" />
     <script src="./js/i18n.js"></script>
     <script src="./js/common.js"></script>
     <script src="./js/products.page.js"></script>

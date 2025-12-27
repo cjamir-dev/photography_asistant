@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="login-container">
+        <div class="login-card">
+          <div class="login-image">
+            <div class="login-image-overlay">
+              <div class="login-image-content">
+                <h2>Photography Assistant</h2>
+                <p>Capture your moments with professional tools</p>
+              </div>
+            </div>
+            <img src="./data/login.png" alt="Photography" class="login-image-img" />
+          </div>
+          
+          <div class="login-form-wrapper">
+            <div class="login-header">
+              <div class="login-logo">
+                <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="32" height="32" rx="8" fill="var(--accent)"/>
+                  <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
+                  <path d="M10 22H22V24H10V22Z" fill="white"/>
+                </svg>
+              </div>
+              <h1>Sign In</h1>
+              <p class="login-subtitle">Welcome back! Please sign in to continue</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+              <div class="error" id="loginError" style="display: none"></div>
+              
+              <label>
+                <span>Username</span>
+                <input id="username" type="text" required autocomplete="username" placeholder="Enter your username" />
+              </label>
+
+              <label>
+                <span>Password</span>
+                <input id="password" type="password" required autocomplete="current-password" placeholder="Enter your password" />
+              </label>
+
+              <button class="btn primary" type="submit" style="width: 100%; margin-top: 8px">
+                Sign In
+              </button>
+            </form>
+
+            <div class="login-footer">
+              <p class="help">Default credentials: admin / admin</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./js/login.page.js"></script>
+  </body>
+</html>
+
