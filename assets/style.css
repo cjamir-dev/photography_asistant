@@ -144,12 +144,6 @@ body {
   margin-bottom: 32px;
 }
 
-.login-logo {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 24px;
-}
-
 .login-header h1 {
   font-size: 28px;
   font-weight: 600;
@@ -229,10 +223,6 @@ body {
     text-align: center;
   }
   
-  .login-logo {
-    justify-content: center;
-  }
-  
   .login-footer {
     text-align: center;
   }
@@ -260,18 +250,6 @@ body {
   margin: 0;
   letter-spacing: -0.003em;
   color: var(--text);
-}
-
-.brand .sub {
-  color: var(--text-secondary);
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: -0.022em;
-}
-
-.nav {
-  display: flex;
-  gap: 12px;
 }
 
 .btn {
@@ -941,27 +919,6 @@ textarea:not([rows]) {
   box-shadow: var(--shadow);
 }
 
-.thumb {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  border: 1px solid var(--border-light);
-  overflow: hidden;
-  background: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 17px;
-}
-
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .item .meta {
   display: flex;
   flex-direction: column;
@@ -981,12 +938,6 @@ textarea:not([rows]) {
   color: var(--text-secondary);
   letter-spacing: -0.022em;
   line-height: 1.47059;
-}
-
-.item .actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
 }
 
 .inline {
@@ -1037,14 +988,6 @@ textarea:not([rows]) {
 .totals .line span:last-child {
   color: var(--accent);
   font-variant-numeric: tabular-nums;
-}
-
-.footerNote {
-  margin-top: 24px;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.47059;
-  letter-spacing: -0.022em;
 }
 
 .scrollable-orders {
