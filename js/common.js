@@ -198,6 +198,7 @@
       totalAmount: 0,
       deposit: 0,
       remainingAmount: 0,
+      description: '',
       createdAt: nowIso()
     }
   }
@@ -272,6 +273,7 @@
   function validateFinalOrder(draft) {
     const ln = String(draft?.customer?.lastName ?? '').trim()
     const ph = String(draft?.customer?.phone ?? '').trim()
+    const description = String(draft?.description ?? '').trim()
 
     if (!ln) return { ok: false, error: 'errorLastNameRequired' }
     if (!isValidIranMobile(ph)) return { ok: false, error: 'errorPhoneInvalid' }
@@ -279,6 +281,9 @@
 
     const final = recomputeOrder(draft)
     if (!(final.totalAmount > 0)) return { ok: false, error: 'errorPriceRequired' }
+    if (final.deposit > final.totalAmount) return { ok: false, error: 'errorDepositTooHigh' }
+
+    final.description = description
 
     return { ok: true, order: final }
   }

@@ -9,6 +9,7 @@ A simple HTML application for managing photography shop orders.
 - Deposit and remaining amount tracking
 - Customer search by phone number
 - Automatic data persistence to local files
+- Excel-friendly CSV export of orders with per-size counts
 
 ## Setup
 

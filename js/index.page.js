@@ -37,6 +37,7 @@ const els = {
   totalAmount: $('#totalAmount'),
   depositInput: $('#depositInput'),
   remainingAmount: $('#remainingAmount'),
+  descriptionInput: $('#descriptionInput'),
   clearDraftBtn: $('#clearDraftBtn'),
   finalizeBtn: $('#finalizeBtn'),
   finalError: $('#finalError'),
@@ -255,7 +256,7 @@ function onSearchCustomer() {
   
   if (foundOrders.length === 0) {
     setText(els.searchOk, t('customerNotFound'))
-    setHidden(els.searchOk, true)
+    setHidden(els.searchOk, false)
     setHidden(els.searchError, true)
     return
   }
@@ -379,6 +380,7 @@ function clearDraft() {
   els.qtyInput.value = '1'
   els.itemTotalInput.value = ''
   els.depositInput.value = '0'
+  els.descriptionInput.value = ''
   showCustomerError('')
   showCustomerOk('')
   showFinalError('')
@@ -468,6 +470,7 @@ async function finalizeOrder() {
 
   const deposit = parseMoney(els.depositInput.value)
   draft.deposit = deposit
+  draft.description = String(els.descriptionInput.value ?? '').trim()
   draft = logic.recomputeOrder(draft)
 
   const res = validateFinalOrder(draft)
@@ -505,6 +508,7 @@ async function finalizeOrder() {
   els.qtyInput.value = '1'
   els.itemTotalInput.value = ''
   els.depositInput.value = '0'
+  els.descriptionInput.value = ''
   showCustomerError('')
   showCustomerOk('')
   showFinalError('')
@@ -645,6 +649,11 @@ async function init() {
     els.depositInput.value = formatMoneyInput(els.depositInput.value)
     onDepositChange()
   })
+  if (els.descriptionInput) {
+    els.descriptionInput.addEventListener('input', () => {
+      draft.description = String(els.descriptionInput.value ?? '').trim()
+    })
+  }
   els.addBtn.addEventListener('click', onAddToCart)
   els.cartList.addEventListener('click', onCartClick)
   els.cartList.addEventListener('input', onCartInput)

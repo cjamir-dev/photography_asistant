@@ -88,7 +88,7 @@
           </nav>
         </aside>
 
-        <div class="grid">
+        <div class="grid order-grid">
         <div class="card">
           <h2 data-i18n="orderTitle"></h2>
           <h3 data-i18n="customerInfo"></h3>
@@ -134,10 +134,14 @@
               <span data-i18n="totalAmount"></span>
               <span id="totalAmount">0</span>
             </div>
-            <div class="row mt-md">
+            <div class="row row-2 mt-md">
               <label>
                 <span data-i18n="deposit"></span>
                 <input id="depositInput" inputmode="numeric" type="text" value="0" />
+              </label>
+              <label>
+                <span data-i18n="description"></span>
+                <textarea class="textarea-compact" id="descriptionInput" rows="2" placeholder="" data-i18n-placeholder="descriptionPlaceholder"></textarea>
               </label>
             </div>
             <div class="line mt-sm">
