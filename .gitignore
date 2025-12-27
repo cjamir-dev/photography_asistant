@@ -1,4 +1,4 @@
 node_modules/
-data/
+# data/  # Uncomment this line if you want to ignore data folder
 *.log
 
