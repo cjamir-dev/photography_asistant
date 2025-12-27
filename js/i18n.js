@@ -6,6 +6,7 @@
     pageSettings: 'Settings',
     
     // Navigation
+    navDashboard: 'Dashboard',
     navProducts: 'Manage Products',
     navBack: 'Back to Dashboard',
     navFile: 'File',
@@ -13,7 +14,7 @@
     navLogout: 'Logout',
     
     // Order page
-    orderTitle: 'Dashboard',
+    orderTitle: 'New Order',
     orderSubtitle: 'Last Name + Mobile → Add Product to Cart → Finalize Order',
     customerInfo: 'Customer Information',
     customerLastName: 'Last Name',
@@ -129,7 +130,42 @@
     activated: 'activated',
     saved: 'saved successfully',
     saveSettings: 'Save Settings',
-    logoutConfirm: 'Are you sure you want to logout?'
+    settingsSaved: 'Settings saved successfully',
+    logoutConfirm: 'Are you sure you want to logout?',
+    
+    // SMS Settings
+    smsSettings: 'SMS Settings',
+    smsApiType: 'SMS API Provider',
+    smsApiPayamakVip: 'Payamak.vip',
+    smsApiNiazpardaz: 'Niazpardaz',
+    smsApiTypeHelp: 'Select your SMS service provider',
+    smsUsername: 'SMS Username',
+    smsUsernameHelp: 'Enter your SMS panel username',
+    smsPassword: 'SMS Password',
+    smsPasswordHelp: 'Enter your SMS panel password',
+    smsFromNumber: 'Sender Number',
+    smsFromNumberHelp: 'Enter the sender number (e.g., 500025799991)',
+    smsMessageTemplate: 'Message Template',
+    smsMessageTemplateHelp: 'Use {lastName}, {totalAmount}, {deposit}, {remainingAmount} as placeholders',
+    smsEnabled: 'Enable SMS notifications',
+    smsEnabledHelp: 'Send SMS to customer when order is finalized',
+    smsSent: 'SMS sent successfully',
+    smsError: 'Failed to send SMS',
+    smsNotConfigured: 'SMS settings not configured',
+    
+    // Dashboard
+    pageDashboard: 'Dashboard',
+    dashboardTitle: 'Dashboard',
+    statTotalOrders: 'Total Orders',
+    statTodayOrders: 'Today Orders',
+    statUnpaidOrders: 'Unpaid Orders',
+    statTotalRevenue: 'Total Revenue',
+    statTotalCustomers: 'Total Customers',
+    statRemainingAmount: 'Remaining Amount',
+    recentOrders: 'Recent Orders',
+    unpaidOrders: 'Unpaid Orders',
+    noOrders: 'No orders yet',
+    noUnpaidOrders: 'All orders are settled'
   }
   
   window.i18n = {

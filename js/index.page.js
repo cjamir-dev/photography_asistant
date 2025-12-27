@@ -397,6 +397,71 @@ function clearDraft() {
   renderCart()
 }
 
+async function sendSms(order) {
+  try {
+    const smsSettings = JSON.parse(localStorage.getItem('smsSettings') || '{}')
+    
+    if (!smsSettings.enabled || !smsSettings.username || !smsSettings.password || !smsSettings.fromNumber) {
+      return { ok: false, error: t('smsNotConfigured') }
+    }
+    
+    const messageTemplate = smsSettings.messageTemplate || '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان'
+    
+    let messageContent = messageTemplate
+      .replace(/{lastName}/g, order.customer?.lastName || '')
+      .replace(/{totalAmount}/g, formatMoney(order.totalAmount || 0))
+      .replace(/{deposit}/g, formatMoney(order.deposit || 0))
+      .replace(/{remainingAmount}/g, formatMoney(order.remainingAmount || 0))
+    
+    // استفاده از URL کامل برای اطمینان
+    const apiUrl = window.location.origin + '/api/send-sms'
+    console.log('[SMS] Sending to:', apiUrl)
+    console.log('[SMS] Settings:', {
+      username: smsSettings.username ? '***' : 'missing',
+      password: smsSettings.password ? '***' : 'missing',
+      fromNumber: smsSettings.fromNumber,
+      toNumbers: order.customer?.phone || '',
+      messageLength: messageContent.length
+    })
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiType: smsSettings.apiType || 'payamak-vip',
+        userName: smsSettings.username,
+        password: smsSettings.password,
+        fromNumber: smsSettings.fromNumber,
+        toNumbers: order.customer?.phone || '',
+        messageContent: messageContent
+      })
+    })
+    
+    console.log('[SMS] Response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMessage = errorData.error || t('smsError')
+      console.error('[SMS] Server error:', errorMessage)
+      return { ok: false, error: errorMessage }
+    }
+    
+    const result = await response.json()
+    
+    // بررسی نتیجه API
+    if (result.response && result.response.Result !== undefined && result.response.Result !== 0) {
+      const apiError = result.response.ErrorMessage || `API Error Code: ${result.response.Result}`
+      console.error('[SMS] API error:', apiError)
+      return { ok: false, error: apiError }
+    }
+    
+    return { ok: true, result }
+  } catch (error) {
+    console.error('SMS Error:', error)
+    return { ok: false, error: t('smsError') }
+  }
+}
+
 async function finalizeOrder() {
   showFinalError('')
   showFinalOk('')
@@ -419,6 +484,20 @@ async function finalizeOrder() {
   setHidden(els.searchOk, false)
 
   showFinalOk(t('orderSaved'))
+  
+  // ارسال SMS
+  const smsResult = await sendSms(res.order)
+  if (smsResult.ok) {
+    showFinalOk(`${t('orderSaved')} - ${t('smsSent')}`)
+  } else {
+    // نمایش خطا به کاربر
+    const errorMsg = smsResult.error || t('smsError')
+    if (smsResult.error !== t('smsNotConfigured')) {
+      // نمایش خطا در پیام نهایی
+      showFinalError(`${t('orderSaved')} - SMS Error: ${errorMsg}`)
+      console.warn('SMS Error:', errorMsg)
+    }
+  }
   
   draft = createOrderDraft()
   customerIsValid = false

@@ -4,6 +4,12 @@ const t = window.i18n?.t || ((k) => k)
 
 const els = {
   themeSelect: $('#themeSelect'),
+  smsApiType: $('#smsApiType'),
+  smsUsername: $('#smsUsername'),
+  smsPassword: $('#smsPassword'),
+  smsFromNumber: $('#smsFromNumber'),
+  smsMessageTemplate: $('#smsMessageTemplate'),
+  smsEnabled: $('#smsEnabled'),
   saveSettingsBtn: $('#saveSettingsBtn'),
   settingsError: $('#settingsError'),
   settingsOk: $('#settingsOk'),
@@ -20,6 +26,17 @@ function loadSettings() {
   if (currentTheme !== document.documentElement.getAttribute('data-theme')) {
     document.documentElement.setAttribute('data-theme', currentTheme)
   }
+  
+  // بارگذاری تنظیمات SMS
+  const smsSettings = JSON.parse(localStorage.getItem('smsSettings') || '{}')
+  if (els.smsApiType) els.smsApiType.value = smsSettings.apiType || 'payamak-vip'
+  if (els.smsUsername) els.smsUsername.value = smsSettings.username || ''
+  if (els.smsPassword) els.smsPassword.value = smsSettings.password || ''
+  if (els.smsFromNumber) els.smsFromNumber.value = smsSettings.fromNumber || ''
+  if (els.smsMessageTemplate) {
+    els.smsMessageTemplate.value = smsSettings.messageTemplate || '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان'
+  }
+  if (els.smsEnabled) els.smsEnabled.checked = smsSettings.enabled === true
 }
 
 function saveTheme(themeValue) {
@@ -73,12 +90,22 @@ function saveSettings() {
     }, 10)
   }
   
+  // ذخیره تنظیمات SMS
+  const smsSettings = {
+    apiType: els.smsApiType?.value || 'payamak-vip',
+    username: els.smsUsername?.value || '',
+    password: els.smsPassword?.value || '',
+    fromNumber: els.smsFromNumber?.value || '',
+    messageTemplate: els.smsMessageTemplate?.value || '',
+    enabled: els.smsEnabled?.checked || false
+  }
+  localStorage.setItem('smsSettings', JSON.stringify(smsSettings))
+  
   // Force reflow برای اطمینان از اعمال CSS
   void htmlElement.offsetHeight
   void document.body.offsetHeight
   
-  const themeName = newTheme === 'dark' ? t('darkMode') : t('lightMode')
-  showSettingsOk(`${themeName} ${t('saved')}`)
+  showSettingsOk(t('settingsSaved') || 'Settings saved successfully')
 }
 
 function showSettingsOk(msg) {

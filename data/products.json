@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": "prod_19b6090e858_f0332595b14868",
+    "name": "6*4 عکس",
+    "price": 500000,
+    "description": "",
+    "imageDataUrl": "",
+    "createdAt": "2025-12-27T16:07:48.056Z",
+    "updatedAt": "2025-12-27T16:07:48.056Z"
+  },
+  {
+    "id": "prod_19b6090b69d_7cde698ecd0c9",
+    "name": "3*4 عکس",
+    "price": 300000,
+    "description": "",
+    "imageDataUrl": "",
+    "createdAt": "2025-12-27T16:07:35.325Z",
+    "updatedAt": "2025-12-27T16:07:35.325Z"
+  }
+]
