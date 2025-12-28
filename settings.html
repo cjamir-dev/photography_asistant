@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="pageSettings">Settings</title>
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('theme') || 'light'
+        const savedLanguage = localStorage.getItem('language') || 'en'
+        document.documentElement.setAttribute('data-theme', savedTheme)
+        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
+        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
+      })()
+    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -18,11 +27,6 @@
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-logo">
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="32" height="32" rx="8" fill="var(--accent)"/>
-                <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
-                <path d="M10 22H22V24H10V22Z" fill="white"/>
-              </svg>
               <span class="sidebar-logo-text" data-i18n="settingsTitle"></span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
@@ -101,6 +105,37 @@
                 </select>
               </label>
               <p class="help" data-i18n="colorModeHelp"></p>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="languageSettings"></h2>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="language"></span>
+                <select id="languageSelect">
+                  <option value="en" data-i18n="languageEnglish"></option>
+                  <option value="fa" data-i18n="languagePersian"></option>
+                </select>
+              </label>
+              <p class="help" data-i18n="languageHelp"></p>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="currencySettings"></h2>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="currency"></span>
+                <select id="currencySelect">
+                  <option value="toman" data-i18n="currencyToman"></option>
+                  <option value="dollar" data-i18n="currencyDollar"></option>
+                  <option value="euro" data-i18n="currencyEuro"></option>
+                </select>
+              </label>
+              <p class="help" data-i18n="currencyHelp"></p>
             </div>
           </div>
 

@@ -4,6 +4,8 @@ const t = window.i18n?.t || ((k) => k)
 
 const els = {
   themeSelect: $('#themeSelect'),
+  languageSelect: $('#languageSelect'),
+  currencySelect: $('#currencySelect'),
   smsApiType: $('#smsApiType'),
   smsUsername: $('#smsUsername'),
   smsPassword: $('#smsPassword'),
@@ -26,6 +28,14 @@ function loadSettings() {
   if (currentTheme !== document.documentElement.getAttribute('data-theme')) {
     document.documentElement.setAttribute('data-theme', currentTheme)
   }
+  
+  // بارگذاری تنظیمات زبان
+  const savedLanguage = localStorage.getItem('language') || 'en'
+  if (els.languageSelect) els.languageSelect.value = savedLanguage
+  
+  // بارگذاری تنظیمات واحد ارز
+  const savedCurrency = localStorage.getItem('currency') || 'toman'
+  if (els.currencySelect) els.currencySelect.value = savedCurrency
   
   // بارگذاری تنظیمات SMS
   const smsSettings = JSON.parse(localStorage.getItem('smsSettings') || '{}')
@@ -56,6 +66,36 @@ function onThemeChange() {
   if (newTheme === 'light' || newTheme === 'dark') {
     document.documentElement.setAttribute('data-theme', newTheme)
     void document.body.offsetHeight // Force reflow
+  }
+}
+
+function onLanguageChange() {
+  // اعمال فوری زبان برای پیش‌نمایش (اما ذخیره نمی‌شود)
+  const newLanguage = els.languageSelect.value
+  if (newLanguage === 'en' || newLanguage === 'fa') {
+    localStorage.setItem('language', newLanguage)
+    if (window.i18n && window.i18n.setLanguage) {
+      window.i18n.setLanguage(newLanguage)
+    }
+    // Re-initialize i18n to update all texts
+    if (window.PhotoTools && window.PhotoTools.ui && window.PhotoTools.ui.initI18n) {
+      window.PhotoTools.ui.initI18n()
+    }
+  }
+}
+
+function onCurrencyChange() {
+  // اعمال فوری واحد ارز برای پیش‌نمایش (اما ذخیره نمی‌شود)
+  const newCurrency = els.currencySelect.value
+  if (newCurrency === 'toman' || newCurrency === 'dollar' || newCurrency === 'euro') {
+    localStorage.setItem('currency', newCurrency)
+    if (window.i18n && window.i18n.setCurrency) {
+      window.i18n.setCurrency(newCurrency)
+    }
+    // Re-initialize i18n to update currency text
+    if (window.PhotoTools && window.PhotoTools.ui && window.PhotoTools.ui.initI18n) {
+      window.PhotoTools.ui.initI18n()
+    }
   }
 }
 
@@ -90,6 +130,24 @@ function saveSettings() {
     }, 10)
   }
   
+  // ذخیره تنظیمات زبان
+  const newLanguage = els.languageSelect?.value || 'en'
+  if (newLanguage === 'en' || newLanguage === 'fa') {
+    localStorage.setItem('language', newLanguage)
+    if (window.i18n && window.i18n.setLanguage) {
+      window.i18n.setLanguage(newLanguage)
+    }
+  }
+  
+  // ذخیره تنظیمات واحد ارز
+  const newCurrency = els.currencySelect?.value || 'toman'
+  if (newCurrency === 'toman' || newCurrency === 'dollar' || newCurrency === 'euro') {
+    localStorage.setItem('currency', newCurrency)
+    if (window.i18n && window.i18n.setCurrency) {
+      window.i18n.setCurrency(newCurrency)
+    }
+  }
+  
   // ذخیره تنظیمات SMS
   const smsSettings = {
     apiType: els.smsApiType?.value || 'payamak-vip',
@@ -104,6 +162,11 @@ function saveSettings() {
   // Force reflow برای اطمینان از اعمال CSS
   void htmlElement.offsetHeight
   void document.body.offsetHeight
+  
+  // Re-initialize i18n to update all texts
+  if (window.PhotoTools && window.PhotoTools.ui && window.PhotoTools.ui.initI18n) {
+    window.PhotoTools.ui.initI18n()
+  }
   
   showSettingsOk(t('settingsSaved') || 'Settings saved successfully')
 }
@@ -158,6 +221,12 @@ async function init() {
   loadSettings()
   
   els.themeSelect.addEventListener('change', onThemeChange)
+  if (els.languageSelect) {
+    els.languageSelect.addEventListener('change', onLanguageChange)
+  }
+  if (els.currencySelect) {
+    els.currencySelect.addEventListener('change', onCurrencyChange)
+  }
   els.saveSettingsBtn.addEventListener('click', saveSettings)
   
   if (els.logoutBtn) {

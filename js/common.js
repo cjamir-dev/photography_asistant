@@ -324,6 +324,12 @@
   function initI18n() {
     if (!window.i18n) return
     
+    // Apply language to HTML element
+    const language = window.i18n.getLanguage ? window.i18n.getLanguage() : (localStorage.getItem('language') || 'en')
+    const html = document.documentElement
+    html.setAttribute('lang', language === 'fa' ? 'fa' : 'en')
+    html.setAttribute('dir', language === 'fa' ? 'rtl' : 'ltr')
+    
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n')
       const text = window.i18n.t(key)

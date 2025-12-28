@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Login</title>
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('theme') || 'light'
+        const savedLanguage = localStorage.getItem('language') || 'en'
+        document.documentElement.setAttribute('data-theme', savedTheme)
+        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
+        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
+      })()
+    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>

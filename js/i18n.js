@@ -1,5 +1,5 @@
 (function () {
-  const texts = {
+  const textsEn = {
     // Page titles
     pageOrder: 'Order Registration',
     pageProducts: 'Product Management',
@@ -51,7 +51,7 @@
     productsSubtitle: 'Create/Edit/Delete Products — Saved in Browser',
     addEditProduct: 'Add / Edit Product',
     productName: 'Product Name',
-    productPrice: 'Price (Toman)',
+    productPrice: 'Price',
     productImage: 'Product Image (Optional)',
     productDesc: 'Description (Optional)',
     productNamePlaceholder: 'Example: Photo Print 10×15',
@@ -130,6 +130,17 @@
     lightMode: 'Light Mode',
     darkMode: 'Dark Mode',
     colorModeHelp: 'Choose your preferred color theme for the application',
+    languageSettings: 'Language',
+    language: 'Language',
+    languageEnglish: 'English',
+    languagePersian: 'Persian (فارسی)',
+    languageHelp: 'Select your preferred language',
+    currencySettings: 'Currency',
+    currency: 'Currency Unit',
+    currencyToman: 'Toman (تومان)',
+    currencyDollar: 'Dollar ($)',
+    currencyEuro: 'Euro (€)',
+    currencyHelp: 'Select your preferred currency unit',
     otherSettings: 'Other Settings',
     settingsNote: 'More settings will be available in future updates',
     activated: 'activated',
@@ -172,8 +183,252 @@
     noOrders: 'No orders yet',
     noUnpaidOrders: 'All orders are settled'
   }
+
+  const textsFa = {
+    // Page titles
+    pageOrder: 'ثبت سفارش',
+    pageProducts: 'مدیریت محصولات',
+    pageSettings: 'تنظیمات',
+    
+    // Navigation
+    navDashboard: 'داشبورد',
+    navProducts: 'مدیریت محصولات',
+    navBack: 'بازگشت به داشبورد',
+    navFile: 'فایل',
+    navSettings: 'تنظیمات',
+    navLogout: 'خروج',
+    
+    // Order page
+    orderTitle: 'سفارش جدید',
+    orderSubtitle: 'نام خانوادگی + موبایل → افزودن محصول به سبد → ثبت نهایی',
+    customerInfo: 'اطلاعات مشتری',
+    customerLastName: 'نام خانوادگی',
+    customerPhone: 'شماره موبایل',
+    customerLastNamePlaceholder: 'مثال: احمدی',
+    customerPhonePlaceholder: 'مثال: 09123456789',
+    
+    // Cart
+    cartTitle: 'سبد خرید مشتری',
+    selectProduct: 'انتخاب محصول',
+    quantity: 'تعداد',
+    itemTotal: 'جمع آیتم',
+    addToCart: 'افزودن به سبد',
+    emptyCart: 'سبد خرید خالی است',
+    totalAmount: 'مبلغ کل',
+    deposit: 'بیعانه',
+    remainingAmount: 'مانده حساب',
+    description: 'توضیحات',
+    descriptionPlaceholder: 'یادداشت اختیاری برای این سفارش',
+    clearCart: 'پاک کردن سبد',
+    finalizeOrder: 'ثبت نهایی سفارش',
+    settlePayment: 'تسویه',
+    noProductsHelp: 'هنوز محصولی وجود ندارد. از دکمه "مدیریت محصولات" یک محصول ایجاد کنید.',
+    
+    // Search
+    searchTitle: 'جستجوی مشتری',
+    searchPhone: 'شماره موبایل',
+    searchPhonePlaceholder: 'مثال: 09123456789',
+    searchConfirm: 'جستجو',
+    previousOrders: 'سفارش‌های قبلی این مشتری',
+    
+    // Products page
+    productsTitle: 'محصولات',
+    productsSubtitle: 'ایجاد/ویرایش/حذف محصولات — ذخیره در مرورگر',
+    addEditProduct: 'افزودن / ویرایش محصول',
+    productName: 'نام محصول',
+    productPrice: 'قیمت',
+    productImage: 'تصویر محصول (اختیاری)',
+    productDesc: 'توضیحات (اختیاری)',
+    productNamePlaceholder: 'مثال: چاپ عکس 10×15',
+    productPricePlaceholder: 'مثال: 50000',
+    productDescPlaceholder: 'مثال: تحویل یک روزه',
+    modeAdd: 'حالت: افزودن',
+    modeEdit: 'حالت: ویرایش',
+    resetForm: 'بازنشانی فرم',
+    saveProduct: 'ذخیره محصول',
+    productsList: 'فهرست محصولات',
+    productCount: 'محصول',
+    editHelp: 'برای بارگذاری اطلاعات محصول در فرم، روی "ویرایش" کلیک کنید.',
+    emptyProducts: 'هنوز محصولی وجود ندارد. ابتدا یک محصول ایجاد کنید تا در صفحه سفارش قابل انتخاب باشد.',
+    editBtn: 'ویرایش',
+    deleteBtn: 'حذف',
+    noImage: 'بدون تصویر',
+    imageNote: 'توجه: تصاویر به صورت DataURL در مرورگر ذخیره می‌شوند و ممکن است فضای ذخیره‌سازی مرورگر را اشغال کنند.',
+    
+    // Messages
+    customerValid: 'اطلاعات مشتری تأیید شد',
+    orderSaved: 'سفارش با موفقیت ذخیره شد',
+    productSaved: 'محصول با موفقیت ذخیره شد',
+    productUpdated: 'محصول با موفقیت به‌روزرسانی شد',
+    productDeleted: 'محصول با موفقیت حذف شد',
+    productLoaded: 'محصول برای ویرایش بارگذاری شد',
+    customerNotFound: 'مشتری یافت نشد',
+    ordersFound: 'سفارش یافت شد',
+    ordersFoundPlural: 'سفارش یافت شد',
+    
+    // Errors
+    errorLastNameRequired: 'نام خانوادگی الزامی است',
+    errorPhoneInvalid: 'شماره موبایل نامعتبر است (مثال: 09123456789)',
+    errorPhoneRequired: 'لطفاً شماره موبایل را وارد کنید',
+    errorProductRequired: 'نام محصول الزامی است',
+    errorPriceRequired: 'قیمت باید بیشتر از صفر باشد',
+    errorDepositTooHigh: 'بیعانه نمی‌تواند بیشتر از مبلغ کل باشد',
+    errorSelectProduct: 'لطفاً ابتدا یک محصول انتخاب کنید',
+    errorProductNotFound: 'محصول یافت نشد',
+    errorCartEmpty: 'حداقل یک محصول به سبد اضافه کنید',
+    errorImageRead: 'خواندن تصویر ناموفق بود',
+    errorProductEditNotFound: 'محصول برای ویرایش یافت نشد',
+    
+    // Currency
+    currency: 'تومان',
+    
+    // Actions
+    deleteConfirm: 'حذف',
+    deleteConfirmQuestion: 'حذف محصول',
+    
+    // Cart item
+    cartItem: 'سبد',
+    deleteItem: 'حذف',
+    
+    // Data Management
+    exportData: 'خروجی داده',
+    importData: 'وارد کردن داده',
+    exportProducts: 'خروجی محصولات',
+    exportOrders: 'خروجی سفارش‌ها',
+    exportOrdersExcel: 'خروجی سفارش‌ها (Excel)',
+    importProducts: 'وارد کردن محصولات',
+    importOrders: 'وارد کردن سفارش‌ها',
+    dataExported: 'داده با موفقیت خروجی گرفته شد',
+    dataImported: 'داده با موفقیت وارد شد',
+    importError: 'وارد کردن داده ناموفق بود',
+    confirmImport: 'این کار تمام داده‌های فعلی را جایگزین می‌کند. ادامه می‌دهید؟',
+    exportOrdersHelp: 'خروجی تمام سفارش‌ها به یک فایل JSON',
+    exportOrdersExcelHelp: 'دانلود CSV سازگار با Excel با شمارش بر اساس سایز',
+    importOrdersHelp: 'وارد کردن سفارش‌ها از یک فایل JSON',
+    exportProductsHelp: 'خروجی تمام محصولات به یک فایل JSON',
+    importProductsHelp: 'وارد کردن محصولات از یک فایل JSON',
+    
+    // Settings page
+    settingsTitle: 'تنظیمات',
+    appearanceSettings: 'ظاهر',
+    colorMode: 'حالت رنگ',
+    lightMode: 'حالت روشن',
+    darkMode: 'حالت تاریک',
+    colorModeHelp: 'تم رنگی مورد علاقه خود را برای برنامه انتخاب کنید',
+    languageSettings: 'زبان',
+    language: 'زبان',
+    languageEnglish: 'انگلیسی',
+    languagePersian: 'فارسی',
+    languageHelp: 'زبان مورد علاقه خود را انتخاب کنید',
+    currencySettings: 'واحد ارز',
+    currency: 'واحد ارز',
+    currencyToman: 'تومان',
+    currencyDollar: 'دلار ($)',
+    currencyEuro: 'یورو (€)',
+    currencyHelp: 'واحد ارز مورد علاقه خود را انتخاب کنید',
+    otherSettings: 'سایر تنظیمات',
+    settingsNote: 'تنظیمات بیشتر در به‌روزرسانی‌های آینده در دسترس خواهد بود',
+    activated: 'فعال شد',
+    saved: 'با موفقیت ذخیره شد',
+    saveSettings: 'ذخیره تنظیمات',
+    settingsSaved: 'تنظیمات با موفقیت ذخیره شد',
+    logoutConfirm: 'آیا مطمئن هستید که می‌خواهید خارج شوید؟',
+    
+    // SMS Settings
+    smsSettings: 'تنظیمات پیامک',
+    smsApiType: 'ارائه‌دهنده API پیامک',
+    smsApiPayamakVip: 'Payamak.vip',
+    smsApiNiazpardaz: 'Niazpardaz',
+    smsApiTypeHelp: 'ارائه‌دهنده سرویس پیامک خود را انتخاب کنید',
+    smsUsername: 'نام کاربری پیامک',
+    smsUsernameHelp: 'نام کاربری پنل پیامک خود را وارد کنید',
+    smsPassword: 'رمز عبور پیامک',
+    smsPasswordHelp: 'رمز عبور پنل پیامک خود را وارد کنید',
+    smsFromNumber: 'شماره فرستنده',
+    smsFromNumberHelp: 'شماره فرستنده را وارد کنید (مثال: 500025799991)',
+    smsMessageTemplate: 'قالب پیام',
+    smsMessageTemplateHelp: 'از {lastName}, {totalAmount}, {deposit}, {remainingAmount} به عنوان متغیر استفاده کنید',
+    smsEnabled: 'فعال‌سازی اعلان‌های پیامک',
+    smsEnabledHelp: 'ارسال پیامک به مشتری هنگام ثبت نهایی سفارش',
+    smsSent: 'پیامک با موفقیت ارسال شد',
+    smsError: 'ارسال پیامک ناموفق بود',
+    smsNotConfigured: 'تنظیمات پیامک پیکربندی نشده است',
+    
+    // Dashboard
+    pageDashboard: 'داشبورد',
+    dashboardTitle: 'داشبورد',
+    statTotalOrders: 'کل سفارش‌ها',
+    statTodayOrders: 'سفارش‌های امروز',
+    statUnpaidOrders: 'سفارش‌های پرداخت نشده',
+    statTotalRevenue: 'کل درآمد',
+    statTotalCustomers: 'کل مشتریان',
+    statRemainingAmount: 'مبلغ مانده',
+    recentOrders: 'سفارش‌های اخیر',
+    unpaidOrders: 'سفارش‌های پرداخت نشده',
+    noOrders: 'هنوز سفارشی وجود ندارد',
+    noUnpaidOrders: 'همه سفارش‌ها تسویه شده‌اند'
+  }
+
+  function getLanguage() {
+    return localStorage.getItem('language') || 'en'
+  }
+
+  function getCurrency() {
+    return localStorage.getItem('currency') || 'toman'
+  }
+
+  function getTexts() {
+    const lang = getLanguage()
+    return lang === 'fa' ? textsFa : textsEn
+  }
+
+  function getCurrencyText() {
+    const currency = getCurrency()
+    const lang = getLanguage()
+    if (currency === 'dollar') {
+      return lang === 'fa' ? 'دلار' : 'Dollar'
+    } else if (currency === 'euro') {
+      return lang === 'fa' ? 'یورو' : 'Euro'
+    } else {
+      return lang === 'fa' ? 'تومان' : 'Toman'
+    }
+  }
   
   window.i18n = {
-    t: (key) => texts[key] || key
+    t: (key) => {
+      const texts = getTexts()
+      if (key === 'currency') {
+        return getCurrencyText()
+      }
+      return texts[key] || key
+    },
+    getLanguage,
+    getCurrency,
+    setLanguage: (lang) => {
+      localStorage.setItem('language', lang)
+      applyLanguage()
+    },
+    setCurrency: (currency) => {
+      localStorage.setItem('currency', currency)
+    }
+  }
+
+  function applyLanguage() {
+    const lang = getLanguage()
+    const html = document.documentElement
+    html.setAttribute('lang', lang === 'fa' ? 'fa' : 'en')
+    html.setAttribute('dir', lang === 'fa' ? 'rtl' : 'ltr')
+    
+    // Re-initialize i18n if available
+    if (window.PhotoTools && window.PhotoTools.ui && window.PhotoTools.ui.initI18n) {
+      window.PhotoTools.ui.initI18n()
+    }
+  }
+
+  // Apply language on load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyLanguage)
+  } else {
+    applyLanguage()
   }
 })()
