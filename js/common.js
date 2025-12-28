@@ -388,7 +388,14 @@
 
   function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light'
+    let newTheme = 'light'
+    if (currentTheme === 'light') {
+      newTheme = 'dark'
+    } else if (currentTheme === 'dark') {
+      newTheme = 'gray'
+    } else {
+      newTheme = 'light'
+    }
     document.documentElement.setAttribute('data-theme', newTheme)
     localStorage.setItem('theme', newTheme)
     return newTheme
@@ -451,14 +458,76 @@
     formatMoneyInput
   }
   
+  function addPageTransition() {
+    // اضافه کردن transition برای لینک‌های داخلی
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('a')
+      if (!link) return
+      
+      const href = link.getAttribute('href')
+      if (!href) return
+      
+      // فقط برای لینک‌های داخلی (نه لینک‌های خارجی یا anchor)
+      if (href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+        return
+      }
+      
+      // اگر لینک به همان صفحه فعلی است، transition نده
+      if (href === window.location.pathname || href === './' + window.location.pathname.split('/').pop()) {
+        return
+      }
+      
+      // اضافه کردن fade-out به body
+      document.body.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+      document.body.style.opacity = '0.8'
+      document.body.style.transform = 'scale(0.98)'
+      
+      // بعد از transition، صفحه تغییر می‌کند
+      setTimeout(() => {
+        document.body.style.opacity = '1'
+        document.body.style.transform = 'scale(1)'
+      }, 250)
+    })
+  }
+
+  function setupAnimationIndices() {
+    // تنظیم index برای کارت‌ها
+    const cards = document.querySelectorAll('.card')
+    cards.forEach((card, index) => {
+      card.style.setProperty('--card-index', index)
+    })
+    
+    // تنظیم index برای آیتم‌ها
+    const items = document.querySelectorAll('.item')
+    items.forEach((item, index) => {
+      item.style.setProperty('--item-index', index)
+    })
+    
+    // تنظیم index برای stat-card ها
+    const statCards = document.querySelectorAll('.stat-card')
+    statCards.forEach((card, index) => {
+      card.style.setProperty('--stat-index', index)
+    })
+    
+    // تنظیم index برای sidebar-item ها
+    const sidebarItems = document.querySelectorAll('.sidebar-item')
+    sidebarItems.forEach((item, index) => {
+      item.style.setProperty('--sidebar-item-index', index)
+    })
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initI18n()
       initTheme()
+      addPageTransition()
+      setupAnimationIndices()
     })
   } else {
     initI18n()
     initTheme()
+    addPageTransition()
+    setupAnimationIndices()
   }
 })()
 

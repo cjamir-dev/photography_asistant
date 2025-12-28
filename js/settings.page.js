@@ -63,7 +63,7 @@ function saveTheme(themeValue) {
 function onThemeChange() {
   // اعمال فوری theme برای پیش‌نمایش (اما ذخیره نمی‌شود)
   const newTheme = els.themeSelect.value
-  if (newTheme === 'light' || newTheme === 'dark') {
+  if (newTheme === 'light' || newTheme === 'dark' || newTheme === 'gray') {
     document.documentElement.setAttribute('data-theme', newTheme)
     void document.body.offsetHeight // Force reflow
   }
@@ -102,7 +102,7 @@ function onCurrencyChange() {
 function saveSettings() {
   const newTheme = els.themeSelect.value
   
-  if (!newTheme || (newTheme !== 'light' && newTheme !== 'dark')) {
+  if (!newTheme || (newTheme !== 'light' && newTheme !== 'dark' && newTheme !== 'gray')) {
     showSettingsError(t('errorInvalidTheme') || 'Invalid theme selected')
     return
   }
