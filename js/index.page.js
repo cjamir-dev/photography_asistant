@@ -10,7 +10,9 @@ const {
   validateFinalOrder,
   formatMoney,
   parseMoney,
-  parseQty
+  parseQty,
+  updateOrder,
+  clone
 } = logic
 const { $, setText, setHidden, escapeHtml } = ui
 const t = window.i18n?.t || ((k) => k)
@@ -52,6 +54,7 @@ let products = []
 let orders = []
 let draft = createOrderDraft()
 let customerIsValid = false
+let editingOrderId = null
 
 async function initData() {
   products = await loadProducts()
@@ -212,6 +215,13 @@ function renderCustomerOrders(customerOrders) {
       const remainingAmount = o.remainingAmount !== undefined ? o.remainingAmount : (totalAmount - depositAmount)
       const remaining = formatMoney(remainingAmount)
       const isSettled = remainingAmount <= 0 && totalAmount > 0
+      const actionsHtml = `
+        <div class="actions">
+          <button class="btn" data-action="edit" type="button">${t('editOrder')}</button>
+          <button class="btn danger" data-action="delete" type="button">${t('deleteOrder')}</button>
+          ${!isSettled ? `<button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button>` : ''}
+        </div>
+      `
       return `
         <div class="item" style="margin-bottom: 8px" data-order-id="${escapeHtml(o.id)}">
           <div class="meta">
@@ -224,7 +234,7 @@ function renderCustomerOrders(customerOrders) {
             </div>
             ${!isSettled ? `<div class="sub" style="color: var(--danger); margin-top: 4px; font-weight: 600">Remaining: ${remaining} ${currency}</div>` : '<div class="sub" style="color: var(--ok); margin-top: 4px">Settled</div>'}
           </div>
-          ${!isSettled ? `<div class="actions"><button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button></div>` : ''}
+          ${actionsHtml}
         </div>
       `
     })
@@ -373,6 +383,7 @@ function onCartInput(e) {
 function clearDraft() {
   draft = createOrderDraft()
   customerIsValid = false
+  editingOrderId = null
   els.lastName.value = ''
   els.phone.value = ''
   els.searchPhone.value = ''
@@ -476,7 +487,20 @@ async function finalizeOrder() {
   const res = validateFinalOrder(draft)
   if (!res.ok) return showFinalError(t(res.error) || res.error)
 
-  orders = [res.order, ...orders]
+  const isEdit = !!editingOrderId
+  if (isEdit) {
+    const existing = orders.find(o => o.id === editingOrderId)
+    if (existing) {
+      const updateResult = updateOrder(existing, { ...res.order, id: existing.id })
+      if (!updateResult.ok) return showFinalError(t(updateResult.error) || updateResult.error)
+      const updatedOrder = updateResult.order
+      orders = orders.map(o => (o.id === existing.id ? updatedOrder : o))
+    } else {
+      orders = [res.order, ...orders]
+    }
+  } else {
+    orders = [res.order, ...orders]
+  }
   await saveOrders(orders)
 
   const foundOrders = findOrdersByPhone(res.order.customer.phone)
@@ -504,6 +528,7 @@ async function finalizeOrder() {
   
   draft = createOrderDraft()
   customerIsValid = false
+  editingOrderId = null
   els.productSelect.value = ''
   els.qtyInput.value = '1'
   els.itemTotalInput.value = ''
@@ -618,6 +643,40 @@ async function onCustomerOrdersClick(e) {
     
     const foundOrders = findOrdersByPhone(order.customer.phone)
     renderCustomerOrders(foundOrders)
+  }
+  if (action === 'edit') {
+    const order = orders.find(o => o.id === orderId)
+    if (!order) return
+    const copy = clone ? clone(order) : JSON.parse(JSON.stringify(order))
+    draft = logic.recomputeOrder(copy)
+    editingOrderId = order.id
+    customerIsValid = true
+    els.lastName.value = order.customer?.lastName ?? ''
+    els.phone.value = order.customer?.phone ?? ''
+    els.depositInput.value = formatMoneyInput(order.deposit ?? 0)
+    els.descriptionInput.value = order.description ?? ''
+    showCustomerError('')
+    showCustomerOk(t('editingOrder') || 'Editing order')
+    renderCart()
+  }
+  if (action === 'delete') {
+    const order = orders.find(o => o.id === orderId)
+    if (!order) return
+    const confirmMsg = t('confirmDeleteOrder') || 'Delete this order?'
+    const ok = confirm(confirmMsg)
+    if (!ok) return
+    orders = orders.filter(o => o.id !== orderId)
+    await saveOrders(orders)
+    if (editingOrderId === orderId) {
+      clearDraft()
+    }
+    const foundOrders = findOrdersByPhone(order.customer.phone)
+    renderCustomerOrders(foundOrders)
+    const count = foundOrders.length
+    const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
+    setText(els.searchOk, msg)
+    setHidden(els.searchOk, false)
+    setHidden(els.searchError, true)
   }
 }
 

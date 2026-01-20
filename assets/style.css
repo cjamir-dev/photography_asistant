@@ -1114,6 +1114,26 @@ textarea:not([rows]) {
   padding-right: 8px;
 }
 
+.scrollable-orders .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.scrollable-orders .btn {
+  min-height: 32px;
+  padding: 8px 14px;
+  font-size: 14px;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.scrollable-orders .btn.primary,
+.scrollable-orders .btn.danger {
+  padding: 8px 16px;
+}
+
 .scrollable-orders::-webkit-scrollbar {
   width: 8px;
 }

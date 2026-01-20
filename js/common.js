@@ -199,7 +199,9 @@
       deposit: 0,
       remainingAmount: 0,
       description: '',
-      createdAt: nowIso()
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+      history: []
     }
   }
 
@@ -286,6 +288,48 @@
     final.description = description
 
     return { ok: true, order: final }
+  }
+
+  function appendHistory(order, action, payload) {
+    const next = clone(order)
+    const history = Array.isArray(next.history) ? next.history.slice() : []
+    history.push({
+      ts: nowIso(),
+      action,
+      payload: payload ?? null
+    })
+    next.history = history
+    return next
+  }
+
+  function updateOrder(existing, patch) {
+    const base = clone(existing)
+    const merged = {
+      ...base,
+      ...patch,
+      customer: {
+        ...(base.customer || {}),
+        ...(patch?.customer || {})
+      },
+      items: Array.isArray(patch?.items) ? patch.items : base.items,
+      description: patch?.description ?? base.description,
+      deposit: patch?.deposit ?? base.deposit
+    }
+
+    const validated = validateFinalOrder(merged)
+    if (!validated.ok) return validated
+
+    const next = recomputeOrder(validated.order)
+    next.createdAt = base.createdAt || next.createdAt || nowIso()
+    next.updatedAt = nowIso()
+    next.history = Array.isArray(base.history) ? base.history.slice() : []
+    next.history.push({
+      ts: next.updatedAt,
+      action: 'update',
+      payload: patch ?? null
+    })
+
+    return { ok: true, order: next }
   }
 
   function $(sel, root = document) {
@@ -440,7 +484,10 @@
       addItemByProduct,
       updateItemQty,
       removeItem,
-      validateFinalOrder
+      validateFinalOrder,
+      appendHistory,
+      updateOrder,
+      clone
     },
     ui: {
       $,

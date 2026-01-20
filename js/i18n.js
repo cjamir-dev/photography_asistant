@@ -80,6 +80,10 @@
     customerNotFound: 'Customer not found',
     ordersFound: 'order found',
     ordersFoundPlural: 'orders found',
+    editOrder: 'Edit Order',
+    deleteOrder: 'Delete Order',
+    editingOrder: 'Editing order…',
+    confirmDeleteOrder: 'Delete this order?',
     
     // Errors
     errorLastNameRequired: 'Last name is required',
@@ -266,6 +270,10 @@
     customerNotFound: 'مشتری یافت نشد',
     ordersFound: 'سفارش یافت شد',
     ordersFoundPlural: 'سفارش یافت شد',
+    editOrder: 'ویرایش سفارش',
+    deleteOrder: 'حذف سفارش',
+    editingOrder: 'ویرایش سفارش…',
+    confirmDeleteOrder: 'این سفارش حذف شود؟',
     
     // Errors
     errorLastNameRequired: 'نام خانوادگی الزامی است',
