@@ -214,6 +214,12 @@
     unpaidOrders: 'Unpaid Orders',
     noOrders: 'No orders yet',
     noUnpaidOrders: 'All orders are settled',
+    salesCharts: 'Sales Charts',
+    chartDaily: 'Daily',
+    chartMonthly: 'Monthly',
+    chartRevenue: 'Revenue',
+    topProducts: 'Top Products',
+    noProductsData: 'No product data available',
 
     // Receipt
     pageReceipt: 'Receipt',
@@ -449,6 +455,12 @@
     unpaidOrders: 'سفارش‌های پرداخت نشده',
     noOrders: 'هنوز سفارشی وجود ندارد',
     noUnpaidOrders: 'همه سفارش‌ها تسویه شده‌اند',
+    salesCharts: 'نمودارهای فروش',
+    chartDaily: 'روزانه',
+    chartMonthly: 'ماهانه',
+    chartRevenue: 'درآمد',
+    topProducts: 'محصولات پرفروش',
+    noProductsData: 'داده‌ای برای نمایش وجود ندارد',
 
     // Receipt
     pageReceipt: 'رسید',

@@ -15,10 +15,15 @@ const els = {
   unpaidOrdersList: $('#unpaidOrdersList'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
-  logoutBtn: $('#logoutBtn')
+  logoutBtn: $('#logoutBtn'),
+  salesChart: $('#salesChart'),
+  productsChart: $('#productsChart')
 }
 
 let orders = []
+let salesChartInstance = null
+let productsChartInstance = null
+let currentPeriod = 'daily'
 
 function getTodayDate() {
   const today = new Date()
@@ -197,6 +202,268 @@ function renderUnpaidOrders(ordersList) {
   els.unpaidOrdersList.innerHTML = rows
 }
 
+// Chart data calculation functions
+function getDailySalesData(ordersList) {
+  const days = []
+  const revenues = []
+  const today = new Date()
+  
+  // Get last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    const dateStr = date.toISOString().split('T')[0]
+    
+    const dayName = date.toLocaleDateString('fa-IR', { weekday: 'short' })
+    const dayNum = date.getDate()
+    days.push(`${dayName} ${dayNum}`)
+    
+    const dayRevenue = ordersList
+      .filter(order => {
+        const orderDate = new Date(order.createdAt || order.customer?.createdAt || Date.now())
+        return orderDate.toISOString().split('T')[0] === dateStr
+      })
+      .reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+    
+    revenues.push(dayRevenue)
+  }
+  
+  return { labels: days, data: revenues }
+}
+
+function getMonthlySalesData(ordersList) {
+  const months = []
+  const revenues = []
+  const today = new Date()
+  
+  // Get last 6 months
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1)
+    const monthName = date.toLocaleDateString('fa-IR', { month: 'short' })
+    months.push(monthName)
+    
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59)
+    
+    const monthRevenue = ordersList
+      .filter(order => {
+        const orderDate = new Date(order.createdAt || order.customer?.createdAt || Date.now())
+        return orderDate >= monthStart && orderDate <= monthEnd
+      })
+      .reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+    
+    revenues.push(monthRevenue)
+  }
+  
+  return { labels: months, data: revenues }
+}
+
+function getTopProductsData(ordersList) {
+  const productMap = new Map()
+  
+  ordersList.forEach(order => {
+    if (order.items && Array.isArray(order.items)) {
+      order.items.forEach(item => {
+        const productName = item.name || 'Unknown'
+        const quantity = item.quantity || 0
+        const current = productMap.get(productName) || 0
+        productMap.set(productName, current + quantity)
+      })
+    }
+  })
+  
+  // Sort by quantity and get top 5
+  const sorted = Array.from(productMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+  
+  return {
+    labels: sorted.map(([name]) => name),
+    data: sorted.map(([, qty]) => qty)
+  }
+}
+
+function renderSalesChart(period) {
+  const ctx = els.salesChart
+  if (!ctx) return
+  
+  const chartData = period === 'daily' 
+    ? getDailySalesData(orders)
+    : getMonthlySalesData(orders)
+  
+  // Destroy existing chart if it exists
+  if (salesChartInstance) {
+    salesChartInstance.destroy()
+  }
+  
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const isGray = document.documentElement.getAttribute('data-theme') === 'gray'
+  const textColor = isDark || isGray ? 'rgba(235, 235, 245, 0.7)' : 'rgba(60, 60, 67, 0.6)'
+  const gridColor = isDark || isGray ? 'rgba(235, 235, 245, 0.1)' : 'rgba(60, 60, 67, 0.1)'
+  const accentColor = isDark ? '#0A84FF' : (isGray ? '#5E5CE6' : '#0071E3')
+  
+  salesChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartData.labels,
+      datasets: [{
+        label: t('chartRevenue'),
+        data: chartData.data,
+        borderColor: accentColor,
+        backgroundColor: `${accentColor}20`,
+        borderWidth: 3,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: accentColor,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: isDark || isGray ? 'rgba(28, 28, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          titleColor: isDark || isGray ? 'rgba(235, 235, 245, 0.9)' : 'rgba(60, 60, 67, 0.9)',
+          bodyColor: isDark || isGray ? 'rgba(235, 235, 245, 0.7)' : 'rgba(60, 60, 67, 0.7)',
+          borderColor: gridColor,
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              return `${t('chartRevenue')}: ${formatMoney(context.parsed.y)} ${t('currency')}`
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: textColor,
+            font: {
+              size: 12
+            },
+            callback: function(value) {
+              return formatMoney(value)
+            }
+          },
+          grid: {
+            color: gridColor
+          }
+        },
+        x: {
+          ticks: {
+            color: textColor,
+            font: {
+              size: 12
+            }
+          },
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
+  })
+}
+
+function renderProductsChart() {
+  const ctx = els.productsChart
+  if (!ctx) return
+  
+  const chartData = getTopProductsData(orders)
+  
+  if (chartData.labels.length === 0) {
+    if (productsChartInstance) {
+      productsChartInstance.destroy()
+      productsChartInstance = null
+    }
+    // Keep canvas but show message
+    const container = ctx.parentElement
+    if (!container.querySelector('.help')) {
+      const helpMsg = document.createElement('p')
+      helpMsg.className = 'help'
+      helpMsg.textContent = t('noProductsData')
+      container.appendChild(helpMsg)
+    }
+    return
+  }
+  
+  // Remove help message if exists
+  const helpMsg = ctx.parentElement.querySelector('.help')
+  if (helpMsg) {
+    helpMsg.remove()
+  }
+  
+  // Destroy existing chart if it exists
+  if (productsChartInstance) {
+    productsChartInstance.destroy()
+  }
+  
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+  const isGray = document.documentElement.getAttribute('data-theme') === 'gray'
+  const textColor = isDark || isGray ? 'rgba(235, 235, 245, 0.7)' : 'rgba(60, 60, 67, 0.6)'
+  const gridColor = isDark || isGray ? 'rgba(235, 235, 245, 0.1)' : 'rgba(60, 60, 67, 0.1)'
+  
+  const colors = [
+    '#0071E3', '#34C759', '#FF9500', '#FF3B30', '#5856D6',
+    '#AF52DE', '#FF2D55', '#5AC8FA', '#FFCC00', '#8E8E93'
+  ]
+  
+  productsChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: chartData.labels,
+      datasets: [{
+        data: chartData.data,
+        backgroundColor: colors.slice(0, chartData.labels.length),
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: textColor,
+            font: {
+              size: 11
+            },
+            padding: 12,
+            usePointStyle: true
+          }
+        },
+        tooltip: {
+          backgroundColor: isDark || isGray ? 'rgba(28, 28, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+          titleColor: isDark || isGray ? 'rgba(235, 235, 245, 0.9)' : 'rgba(60, 60, 67, 0.9)',
+          bodyColor: isDark || isGray ? 'rgba(235, 235, 245, 0.7)' : 'rgba(60, 60, 67, 0.7)',
+          borderColor: gridColor,
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: function(context) {
+              const label = context.label || ''
+              const value = context.parsed || 0
+              const total = context.dataset.data.reduce((a, b) => a + b, 0)
+              const percentage = ((value / total) * 100).toFixed(1)
+              return `${label}: ${value.toLocaleString()} (${percentage}%)`
+            }
+          }
+        }
+      }
+    }
+  })
+}
+
 async function loadDashboardData() {
   orders = await loadOrders()
   
@@ -204,6 +471,8 @@ async function loadDashboardData() {
   renderStats(stats)
   renderRecentOrders(orders)
   renderUnpaidOrders(orders)
+  renderSalesChart(currentPeriod)
+  renderProductsChart()
 }
 
 async function init() {
@@ -216,6 +485,17 @@ async function init() {
   ui.initI18n()
   
   await loadDashboardData()
+  
+  // Chart period tabs
+  const chartTabs = document.querySelectorAll('.chart-tab')
+  chartTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      chartTabs.forEach(t => t.classList.remove('active'))
+      tab.classList.add('active')
+      currentPeriod = tab.getAttribute('data-period')
+      renderSalesChart(currentPeriod)
+    })
+  })
   
   // Auto refresh every 30 seconds
   setInterval(() => {

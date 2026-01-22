@@ -14,6 +14,7 @@
       })()
     </script>
     <link rel="stylesheet" href="./assets/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div class="app">
@@ -171,6 +172,33 @@
 
           <!-- Charts and Lists -->
           <div class="dashboard-grid">
+            <!-- Charts Section -->
+            <div class="card card-full charts-container">
+              <div class="charts-wrapper">
+                <!-- Sales Chart -->
+                <div class="chart-section chart-section-main">
+                  <div class="chart-header">
+                    <h2 data-i18n="salesCharts"></h2>
+                    <div class="chart-tabs">
+                      <button class="chart-tab active" data-period="daily" data-i18n="chartDaily">Daily</button>
+                      <button class="chart-tab" data-period="monthly" data-i18n="chartMonthly">Monthly</button>
+                    </div>
+                  </div>
+                  <div class="chart-container">
+                    <canvas id="salesChart"></canvas>
+                  </div>
+                </div>
+
+                <!-- Products Chart -->
+                <div class="chart-section chart-section-side">
+                  <h2 data-i18n="topProducts"></h2>
+                  <div class="chart-container chart-container-small">
+                    <canvas id="productsChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="card">
               <h2 data-i18n="recentOrders"></h2>
               <div class="list mt-md" id="recentOrdersList"></div>
