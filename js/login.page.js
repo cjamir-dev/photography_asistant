@@ -5,22 +5,39 @@ const els = {
   loginError: document.getElementById('loginError')
 }
 
-const DEFAULT_USERNAME = 'admin'
-const DEFAULT_PASSWORD = 'admin'
-
 function showError(msg) {
   els.loginError.textContent = msg
   els.loginError.style.display = msg ? 'block' : 'none'
 }
 
-function checkAuth() {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  if (isAuthenticated) {
-    window.location.href = './index.html'
+async function checkAuth() {
+  const token = localStorage.getItem('authToken')
+  if (!token) return false
+  
+  try {
+    const response = await fetch('/api/auth/verify', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.valid) {
+        window.location.href = './index.html'
+        return true
+      }
+    }
+  } catch (e) {
+    // Ignore errors
   }
+  
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('username')
+  return false
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault()
   showError('')
 
@@ -31,12 +48,30 @@ function handleLogin(e) {
     return showError('Please enter both username and password')
   }
 
-  if (username === DEFAULT_USERNAME && password === DEFAULT_PASSWORD) {
-    localStorage.setItem('isAuthenticated', 'true')
-    localStorage.setItem('username', username)
-    window.location.href = './index.html'
-  } else {
-    showError('Invalid username or password')
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    })
+
+    const data = await response.json()
+    
+    console.log('[LOGIN] Response:', { status: response.status, ok: response.ok, data })
+
+    if (response.ok && data.success) {
+      localStorage.setItem('authToken', data.token)
+      localStorage.setItem('username', data.username)
+      window.location.href = './index.html'
+    } else {
+      showError(data.error || 'Invalid username or password')
+      els.password.value = ''
+    }
+  } catch (e) {
+    console.error('[LOGIN] Error:', e)
+    showError('Connection error. Please try again.')
     els.password.value = ''
   }
 }

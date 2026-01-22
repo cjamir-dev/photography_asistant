@@ -689,14 +689,28 @@ async function onCustomerOrdersClick(e) {
 
 
 async function init() {
-  // Check authentication
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  if (!isAuthenticated) {
-    window.location.href = './login.html'
+  // Wait for PhotoTools to be available
+  if (!window.PhotoTools || !window.PhotoTools.auth) {
+    console.error('[AUTH] PhotoTools not loaded, retrying...')
+    setTimeout(init, 100)
     return
   }
   
+  // Check authentication
+  const { auth } = window.PhotoTools
+  console.log('[AUTH] Checking token...')
+  const isValid = await auth.checkAuthToken()
+  console.log('[AUTH] Token check result:', isValid)
+  if (!isValid) {
+    console.log('[AUTH] Token invalid, logging out...')
+    auth.logout()
+    return
+  }
+  
+  console.log('[AUTH] Authentication successful, loading page...')
+  
   ui.initI18n()
+  auth.initSessionTimeout()
   
   els.searchBtn.addEventListener('click', onSearchCustomer)
   els.searchPhone.addEventListener('keypress', (e) => {
@@ -729,10 +743,10 @@ async function init() {
   
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to logout?')) {
-        localStorage.removeItem('isAuthenticated')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
+      const { auth } = window.PhotoTools
+      const confirmMsg = t('logoutConfirm') || 'Are you sure you want to logout?'
+      if (confirm(confirmMsg)) {
+        auth.logout()
       }
     })
   }

@@ -273,6 +273,8 @@ async function init() {
     }
     
     ui.initI18n()
+    const { auth } = window.PhotoTools
+    auth.initSessionTimeout()
     
     console.log('Elements initialized:', {
       saveBtn: els.saveBtn,
@@ -303,10 +305,9 @@ async function init() {
     
     if (els.logoutBtn) {
       els.logoutBtn.addEventListener('click', () => {
+        const { auth } = window.PhotoTools
         if (confirm('Are you sure you want to logout?')) {
-          localStorage.removeItem('isAuthenticated')
-          localStorage.removeItem('username')
-          window.location.href = './login.html'
+          auth.logout()
         }
       })
     }

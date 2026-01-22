@@ -382,13 +382,15 @@ async function loadDashboardData() {
 }
 
 async function init() {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  if (!isAuthenticated) {
-    window.location.href = './login.html'
+  const { auth } = window.PhotoTools
+  const isValid = await auth.checkAuthToken()
+  if (!isValid) {
+    auth.logout()
     return
   }
   
   ui.initI18n()
+  auth.initSessionTimeout()
   
   await loadDashboardData()
   
@@ -412,9 +414,8 @@ async function init() {
     els.logoutBtn.addEventListener('click', () => {
       const confirmMsg = t('logoutConfirm') || 'Are you sure you want to logout?'
       if (confirm(confirmMsg)) {
-        localStorage.removeItem('isAuthenticated')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
+        const { auth } = window.PhotoTools
+        auth.logout()
       }
     })
   }

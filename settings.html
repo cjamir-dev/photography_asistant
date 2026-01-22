@@ -295,6 +295,38 @@
           </div>
 
           <div class="card">
+            <h2 data-i18n="securitySettings"></h2>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="currentPassword"></span>
+                <input id="currentPassword" type="password" placeholder="" />
+              </label>
+            </div>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="newPassword"></span>
+                <input id="newPassword" type="password" placeholder="" />
+              </label>
+            </div>
+            
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="confirmNewPassword"></span>
+                <input id="confirmNewPassword" type="password" placeholder="" />
+              </label>
+              <p class="help" data-i18n="changePasswordHelp"></p>
+            </div>
+            
+            <div class="settings-section">
+              <button class="btn primary" id="changePasswordBtn" type="button" data-i18n="changePassword"></button>
+              <div class="error" id="changePasswordError" style="display: none; margin-top: 8px"></div>
+              <div class="success" id="changePasswordSuccess" style="display: none; margin-top: 8px"></div>
+            </div>
+          </div>
+
+          <div class="card">
             <h2 data-i18n="smsSettings"></h2>
             
             <div class="settings-section">

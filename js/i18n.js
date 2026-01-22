@@ -153,6 +153,16 @@
     saveSettings: 'Save Settings',
     settingsSaved: 'Settings saved successfully',
     logoutConfirm: 'Are you sure you want to logout?',
+    securitySettings: 'Security Settings',
+    currentPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmNewPassword: 'Confirm New Password',
+    changePassword: 'Change Password',
+    changePasswordHelp: 'Enter your current password and choose a new password (minimum 4 characters)',
+    passwordChanged: 'Password changed successfully',
+    passwordChangeError: 'Failed to change password',
+    passwordMismatch: 'New passwords do not match',
+    passwordTooShort: 'Password must be at least 4 characters',
     
     // SMS Settings
     smsSettings: 'SMS Settings',
@@ -433,6 +443,16 @@
     saveSettings: 'ذخیره تنظیمات',
     settingsSaved: 'تنظیمات با موفقیت ذخیره شد',
     logoutConfirm: 'آیا مطمئن هستید که می‌خواهید خارج شوید؟',
+    securitySettings: 'تنظیمات امنیتی',
+    currentPassword: 'رمز عبور فعلی',
+    newPassword: 'رمز عبور جدید',
+    confirmNewPassword: 'تأیید رمز عبور جدید',
+    changePassword: 'تغییر رمز عبور',
+    changePasswordHelp: 'رمز عبور فعلی و رمز عبور جدید را وارد کنید (حداقل 4 کاراکتر)',
+    passwordChanged: 'رمز عبور با موفقیت تغییر کرد',
+    passwordChangeError: 'تغییر رمز عبور ناموفق بود',
+    passwordMismatch: 'رمزهای عبور جدید مطابقت ندارند',
+    passwordTooShort: 'رمز عبور باید حداقل 4 کاراکتر باشد',
     
     // SMS Settings
     smsSettings: 'تنظیمات پیامک',

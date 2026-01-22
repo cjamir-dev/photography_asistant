@@ -23,12 +23,93 @@
     }
   }
 
+  function getAuthHeaders() {
+    const token = localStorage.getItem('authToken')
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return headers
+  }
+
+  async function checkAuthToken() {
+    const token = localStorage.getItem('authToken')
+    if (!token) {
+      console.log('[AUTH] No token found')
+      return false
+    }
+    
+    try {
+      const response = await fetch('/api/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      console.log('[AUTH] Verify response:', { status: response.status, ok: response.ok })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('[AUTH] Verify data:', data)
+        return data.valid === true
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.log('[AUTH] Verify failed:', errorData)
+      }
+    } catch (e) {
+      console.error('[AUTH] Verify error:', e)
+    }
+    
+    return false
+  }
+
+  function logout() {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('username')
+    localStorage.removeItem('isAuthenticated') // برای backward compatibility
+    window.location.href = './login.html'
+  }
+
+  function initSessionTimeout() {
+    // Check session validity every 5 minutes
+    setInterval(async () => {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+      
+      const isValid = await checkAuthToken()
+      if (!isValid) {
+        logout()
+      }
+    }, 5 * 60 * 1000) // 5 minutes
+    
+    // Also check on page visibility change
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        const token = localStorage.getItem('authToken')
+        if (!token) return
+        
+        const isValid = await checkAuthToken()
+        if (!isValid) {
+          logout()
+        }
+      }
+    })
+  }
+
   async function loadProducts() {
     try {
-      const response = await fetch('/api/products')
+      const response = await fetch('/api/products', {
+        headers: getAuthHeaders()
+      })
       if (response.ok) {
         const data = await response.json()
         return Array.isArray(data) ? data : []
+      } else if (response.status === 401) {
+        // Unauthorized - redirect to login
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('username')
+        window.location.href = './login.html'
+        return []
       }
     } catch (e) {
       console.warn('Failed to load products from server, using localStorage fallback')
@@ -42,11 +123,16 @@
     try {
       const response = await fetch('/api/products', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(products ?? [])
       })
       if (response.ok) {
         localStorage.setItem(KEYS.products, JSON.stringify(products ?? []))
+        return
+      } else if (response.status === 401) {
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('username')
+        window.location.href = './login.html'
         return
       }
     } catch (e) {
@@ -57,10 +143,17 @@
 
   async function loadOrders() {
     try {
-      const response = await fetch('/api/orders')
+      const response = await fetch('/api/orders', {
+        headers: getAuthHeaders()
+      })
       if (response.ok) {
         const data = await response.json()
         return Array.isArray(data) ? data : []
+      } else if (response.status === 401) {
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('username')
+        window.location.href = './login.html'
+        return []
       }
     } catch (e) {
       console.warn('Failed to load orders from server, using localStorage fallback')
@@ -74,11 +167,16 @@
     try {
       const response = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(orders ?? [])
       })
       if (response.ok) {
         localStorage.setItem(KEYS.orders, JSON.stringify(orders ?? []))
+        return
+      } else if (response.status === 401) {
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('username')
+        window.location.href = './login.html'
         return
       }
     } catch (e) {
@@ -523,6 +621,12 @@
   }
 
   window.PhotoTools = {
+    auth: {
+      getAuthHeaders,
+      checkAuthToken,
+      logout,
+      initSessionTimeout
+    },
     storage: {
       loadProducts,
       saveProducts,

@@ -23,6 +23,12 @@ const els = {
   saveSettingsBtn: $('#saveSettingsBtn'),
   settingsError: $('#settingsError'),
   settingsOk: $('#settingsOk'),
+  currentPassword: $('#currentPassword'),
+  newPassword: $('#newPassword'),
+  confirmNewPassword: $('#confirmNewPassword'),
+  changePasswordBtn: $('#changePasswordBtn'),
+  changePasswordError: $('#changePasswordError'),
+  changePasswordSuccess: $('#changePasswordSuccess'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
@@ -302,6 +308,63 @@ function saveSettings() {
   showSettingsOk(t('settingsSaved') || 'Settings saved successfully')
 }
 
+async function handleChangePassword() {
+  setHidden(els.changePasswordError, true)
+  setHidden(els.changePasswordSuccess, true)
+  
+  const currentPassword = els.currentPassword?.value?.trim() || ''
+  const newPassword = els.newPassword?.value?.trim() || ''
+  const confirmPassword = els.confirmNewPassword?.value?.trim() || ''
+  
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    setText(els.changePasswordError, t('passwordChangeError') || 'Please fill all fields')
+    setHidden(els.changePasswordError, false)
+    return
+  }
+  
+  if (newPassword.length < 4) {
+    setText(els.changePasswordError, t('passwordTooShort') || 'Password must be at least 4 characters')
+    setHidden(els.changePasswordError, false)
+    return
+  }
+  
+  if (newPassword !== confirmPassword) {
+    setText(els.changePasswordError, t('passwordMismatch') || 'New passwords do not match')
+    setHidden(els.changePasswordError, false)
+    return
+  }
+  
+  try {
+    const { auth } = window.PhotoTools
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: auth.getAuthHeaders(),
+      body: JSON.stringify({ currentPassword, newPassword })
+    })
+    
+    const data = await response.json()
+    
+    if (response.ok && data.success) {
+      setText(els.changePasswordSuccess, t('passwordChanged') || 'Password changed successfully')
+      setHidden(els.changePasswordSuccess, false)
+      els.currentPassword.value = ''
+      els.newPassword.value = ''
+      els.confirmNewPassword.value = ''
+      
+      setTimeout(() => {
+        setHidden(els.changePasswordSuccess, true)
+      }, 3000)
+    } else {
+      setText(els.changePasswordError, data.error || t('passwordChangeError') || 'Failed to change password')
+      setHidden(els.changePasswordError, false)
+      els.currentPassword.value = ''
+    }
+  } catch (e) {
+    setText(els.changePasswordError, t('passwordChangeError') || 'Failed to change password')
+    setHidden(els.changePasswordError, false)
+  }
+}
+
 function showSettingsOk(msg) {
   setText(els.settingsOk, msg)
   setHidden(els.settingsOk, false)
@@ -341,13 +404,15 @@ function showMessage(msg, type = 'ok') {
 }
 
 async function init() {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  if (!isAuthenticated) {
-    window.location.href = './login.html'
+  const { auth } = window.PhotoTools
+  const isValid = await auth.checkAuthToken()
+  if (!isValid) {
+    auth.logout()
     return
   }
   
   ui.initI18n()
+  auth.initSessionTimeout()
   
   loadSettings()
   
@@ -385,13 +450,16 @@ async function init() {
 
   els.saveSettingsBtn.addEventListener('click', saveSettings)
   
+  if (els.changePasswordBtn) {
+    els.changePasswordBtn.addEventListener('click', handleChangePassword)
+  }
+  
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {
       const confirmMsg = t('logoutConfirm') || 'Are you sure you want to logout?'
       if (confirm(confirmMsg)) {
-        localStorage.removeItem('isAuthenticated')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
+        const { auth } = window.PhotoTools
+        auth.logout()
       }
     })
   }

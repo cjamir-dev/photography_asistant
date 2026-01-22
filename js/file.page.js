@@ -229,17 +229,17 @@ async function importProducts() {
 }
 
 function handleLogout() {
+  const { auth } = window.PhotoTools
   if (confirm('Are you sure you want to logout?')) {
-    localStorage.removeItem('isAuthenticated')
-    localStorage.removeItem('username')
-    window.location.href = './login.html'
+    auth.logout()
   }
 }
 
-function checkAuth() {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true'
-  if (!isAuthenticated) {
-    window.location.href = './login.html'
+async function checkAuth() {
+  const { auth } = window.PhotoTools
+  const isValid = await auth.checkAuthToken()
+  if (!isValid) {
+    auth.logout()
     return false
   }
   return true
@@ -249,6 +249,7 @@ async function init() {
   if (!checkAuth()) return
   
   ui.initI18n()
+  auth.initSessionTimeout()
   
   await initData()
   
