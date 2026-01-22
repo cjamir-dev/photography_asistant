@@ -11,8 +11,6 @@ const els = {
   statTotalRevenue: $('#statTotalRevenue'),
   statTotalCustomers: $('#statTotalCustomers'),
   statRemainingAmount: $('#statRemainingAmount'),
-  recentOrdersList: $('#recentOrdersList'),
-  unpaidOrdersList: $('#unpaidOrdersList'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn'),
@@ -110,96 +108,6 @@ function renderStats(stats) {
   if (els.statRemainingAmount) {
     els.statRemainingAmount.textContent = `${formatMoney(stats.remainingAmount)} ${t('currency')}`
   }
-}
-
-function renderRecentOrders(ordersList) {
-  const recent = ordersList
-    .slice()
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .slice(0, 5)
-  
-  if (recent.length === 0) {
-    els.recentOrdersList.innerHTML = `<p class="help">${t('noOrders')}</p>`
-    return
-  }
-  
-  const rows = recent.map(order => {
-    const date = new Date(order.createdAt).toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    const total = formatMoney(order.totalAmount || 0)
-    const currency = t('currency')
-    
-    return `
-      <div class="item">
-        <div class="meta">
-          <div class="title">${escapeHtml(order.customer?.lastName || '')}</div>
-          <div class="sub">${escapeHtml(date)}</div>
-          <div class="sub">${total} ${currency}</div>
-        </div>
-      </div>
-    `
-  }).join('')
-  
-  els.recentOrdersList.innerHTML = rows
-}
-
-function renderUnpaidOrders(ordersList) {
-  const unpaid = ordersList
-    .filter(order => {
-      const total = order.totalAmount || 0
-      const remaining = order.remainingAmount !== undefined 
-        ? order.remainingAmount 
-        : (total - (order.deposit || 0))
-      return remaining > 0
-    })
-    .sort((a, b) => {
-      const remainingA = a.remainingAmount !== undefined 
-        ? a.remainingAmount 
-        : ((a.totalAmount || 0) - (a.deposit || 0))
-      const remainingB = b.remainingAmount !== undefined 
-        ? b.remainingAmount 
-        : ((b.totalAmount || 0) - (b.deposit || 0))
-      return remainingB - remainingA
-    })
-    .slice(0, 5)
-  
-  if (unpaid.length === 0) {
-    els.unpaidOrdersList.innerHTML = `<p class="help">${t('noUnpaidOrders')}</p>`
-    return
-  }
-  
-  const rows = unpaid.map(order => {
-    const date = new Date(order.createdAt).toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-    const total = formatMoney(order.totalAmount || 0)
-    const remaining = order.remainingAmount !== undefined 
-      ? order.remainingAmount 
-      : ((order.totalAmount || 0) - (order.deposit || 0))
-    const remainingFormatted = formatMoney(remaining)
-    const currency = t('currency')
-    
-    return `
-      <div class="item">
-        <div class="meta">
-          <div class="title">${escapeHtml(order.customer?.lastName || '')}</div>
-          <div class="sub">${escapeHtml(date)}</div>
-          <div class="sub" style="color: var(--danger); font-weight: 600;">
-            ${t('remainingAmount')}: ${remainingFormatted} ${currency}
-          </div>
-        </div>
-      </div>
-    `
-  }).join('')
-  
-  els.unpaidOrdersList.innerHTML = rows
 }
 
 // Chart data calculation functions
@@ -469,8 +377,6 @@ async function loadDashboardData() {
   
   const stats = calculateStats(orders)
   renderStats(stats)
-  renderRecentOrders(orders)
-  renderUnpaidOrders(orders)
   renderSalesChart(currentPeriod)
   renderProductsChart()
 }
