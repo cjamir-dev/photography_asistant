@@ -1,11 +1,13 @@
 @echo off
+setlocal EnableExtensions
+cd /d "%~dp0"
 chcp 65001 >nul
 echo ========================================
 echo Photography Tools Server
 echo ========================================
 echo.
 
-REM بررسی وجود node_modules
+REM Check node_modules
 if not exist "node_modules" (
     echo [INFO] node_modules not found. Installing dependencies...
     echo.
@@ -25,14 +27,14 @@ if not exist "node_modules" (
     echo.
 )
 
-REM بررسی وجود package.json
+REM Check package.json
 if not exist "package.json" (
     echo [ERROR] package.json not found!
     pause
     exit /b 1
 )
 
-REM بررسی وجود server.js
+REM Check server.js
 if not exist "server.js" (
     echo [ERROR] server.js not found!
     pause

@@ -110,6 +110,153 @@
           </div>
 
           <div class="card">
+            <h2 data-i18n="receiptSettings"></h2>
+
+            <div class="settings-group">
+              <h3 class="settings-group-title" data-i18n="receiptLayoutSettings"></h3>
+              <div class="settings-section">
+                <label class="settings-label">
+                  <span data-i18n="receiptSize"></span>
+                  <select id="receiptSize">
+                    <option value="a4" data-i18n="receiptSizeA4"></option>
+                    <option value="a5" data-i18n="receiptSizeA5"></option>
+                    <option value="80mm" data-i18n="receiptSize80mm"></option>
+                    <option value="58mm" data-i18n="receiptSize58mm"></option>
+                    <option value="business-card" data-i18n="receiptSizeBusinessCard"></option>
+                  </select>
+                </label>
+                <p class="help" data-i18n="receiptSizeHelp"></p>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3 class="settings-group-title" data-i18n="receiptTypographySettings"></h3>
+              <div class="settings-section">
+                <label class="settings-label">
+                  <span data-i18n="receiptFontSize"></span>
+                  <select id="receiptFontSizePreset">
+                    <option value="small" data-i18n="receiptFontSmall"></option>
+                    <option value="medium" data-i18n="receiptFontMedium"></option>
+                    <option value="large" data-i18n="receiptFontLarge"></option>
+                  </select>
+                </label>
+                <p class="help" data-i18n="receiptFontSizeHelp"></p>
+              </div>
+
+              <div class="settings-section">
+                <div class="row row-2">
+                  <label class="settings-label">
+                    <span data-i18n="receiptTitleWeight"></span>
+                    <select id="receiptTitleWeight">
+                      <option value="500">500</option>
+                      <option value="600">600</option>
+                      <option value="700">700</option>
+                      <option value="800">800</option>
+                    </select>
+                  </label>
+                  <label class="settings-label">
+                    <span data-i18n="receiptPriceWeight"></span>
+                    <select id="receiptPriceWeight">
+                      <option value="500">500</option>
+                      <option value="600">600</option>
+                      <option value="700">700</option>
+                      <option value="800">800</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="help" data-i18n="receiptFontWeightHelp"></p>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3 class="settings-group-title" data-i18n="receiptColorSettings"></h3>
+              <div class="settings-section">
+                <div class="row row-2">
+                  <label class="settings-label">
+                    <span data-i18n="receiptBgColor"></span>
+                    <input id="receiptBgColor" type="color" />
+                  </label>
+                  <label class="settings-label">
+                    <span data-i18n="receiptCardBgColor"></span>
+                    <input id="receiptCardBgColor" type="color" />
+                  </label>
+                </div>
+                <div class="row row-2 mt-sm">
+                  <label class="settings-label">
+                    <span data-i18n="receiptBorderColor"></span>
+                    <input id="receiptBorderColor" type="color" />
+                  </label>
+                </div>
+                <p class="help" data-i18n="receiptColorHelp"></p>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3 class="settings-group-title" data-i18n="receiptLivePreview"></h3>
+              <div id="receiptPreviewContainer" class="receipt-preview-container">
+                <div class="receipt-preview-wrapper">
+                  <div class="card receipt-card" id="receiptPreviewCard">
+                    <div class="receipt-header">
+                      <div class="receipt-brand" data-i18n="appName"></div>
+                      <div class="receipt-meta">
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="receiptOrderId"></span>
+                          <span class="value" id="previewOrderId">preview_001</span>
+                        </div>
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="receiptDate"></span>
+                          <span class="value" id="previewDate"></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="receipt-section">
+                      <h2 data-i18n="customerInfo"></h2>
+                      <div class="receipt-grid">
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="customerLastName"></span>
+                          <span class="value" id="previewCustomerName">مشتری نمونه</span>
+                        </div>
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="customerPhone"></span>
+                          <span class="value" id="previewPhone">09120000000</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="receipt-section">
+                      <h2 data-i18n="receiptItems"></h2>
+                      <div class="receipt-items" id="previewItemsList"></div>
+                    </div>
+
+                    <div class="receipt-section">
+                      <h2 data-i18n="receiptSummary"></h2>
+                      <div class="receipt-summary">
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="totalAmount"></span>
+                          <span class="value" id="previewTotal">350,000 تومان</span>
+                        </div>
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="deposit"></span>
+                          <span class="value" id="previewDeposit">100,000 تومان</span>
+                        </div>
+                        <div class="receipt-row">
+                          <span class="label" data-i18n="remainingAmount"></span>
+                          <span class="value" id="previewRemaining">250,000 تومان</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="receipt-footer">
+                      <div class="help" data-i18n="receiptThanks"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
             <h2 data-i18n="languageSettings"></h2>
             
             <div class="settings-section">

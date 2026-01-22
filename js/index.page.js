@@ -217,6 +217,7 @@ function renderCustomerOrders(customerOrders) {
       const isSettled = remainingAmount <= 0 && totalAmount > 0
       const actionsHtml = `
         <div class="actions">
+          <button class="btn" data-action="receipt" type="button">${t('printReceipt')}</button>
           <button class="btn" data-action="edit" type="button">${t('editOrder')}</button>
           <button class="btn danger" data-action="delete" type="button">${t('deleteOrder')}</button>
           ${!isSettled ? `<button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button>` : ''}
@@ -643,6 +644,12 @@ async function onCustomerOrdersClick(e) {
     
     const foundOrders = findOrdersByPhone(order.customer.phone)
     renderCustomerOrders(foundOrders)
+  }
+  if (action === 'receipt') {
+    const order = orders.find(o => o.id === orderId)
+    if (!order) return
+    const url = `./receipt.html?orderId=${encodeURIComponent(order.id)}`
+    window.open(url, '_blank')
   }
   if (action === 'edit') {
     const order = orders.find(o => o.id === orderId)

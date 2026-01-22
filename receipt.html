@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-i18n="pageReceipt">Receipt</title>
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('theme') || 'light'
+        const savedLanguage = localStorage.getItem('language') || 'en'
+        document.documentElement.setAttribute('data-theme', savedTheme)
+        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
+        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
+      })()
+    </script>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body class="receipt-page size-a4">
+    <div class="app receipt-app">
+      <div class="topbar receipt-topbar no-print">
+        <div class="brand">
+          <h1 data-i18n="receiptTitle"></h1>
+        </div>
+        <div class="receipt-actions">
+          <a class="btn" href="./index.html" data-i18n="backToOrders"></a>
+          <button class="btn primary" id="printBtn" type="button" data-i18n="printReceipt"></button>
+        </div>
+      </div>
+
+      <div class="card receipt-card" id="receiptCard">
+        <div class="receipt-header">
+          <div class="receipt-brand" data-i18n="appName"></div>
+          <div class="receipt-meta">
+            <div class="receipt-row">
+              <span class="label" data-i18n="receiptOrderId"></span>
+              <span class="value" id="orderIdText"></span>
+            </div>
+            <div class="receipt-row">
+              <span class="label" data-i18n="receiptDate"></span>
+              <span class="value" id="orderDateText"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-section">
+          <h2 data-i18n="customerInfo"></h2>
+          <div class="receipt-grid">
+            <div class="receipt-row">
+              <span class="label" data-i18n="customerLastName"></span>
+              <span class="value" id="customerNameText"></span>
+            </div>
+            <div class="receipt-row">
+              <span class="label" data-i18n="customerPhone"></span>
+              <span class="value" id="customerPhoneText"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-section">
+          <h2 data-i18n="receiptItems"></h2>
+          <div class="receipt-items" id="itemsList"></div>
+        </div>
+
+        <div class="receipt-section">
+          <h2 data-i18n="receiptSummary"></h2>
+          <div class="receipt-summary">
+            <div class="receipt-row">
+              <span class="label" data-i18n="totalAmount"></span>
+              <span class="value" id="totalAmountText"></span>
+            </div>
+            <div class="receipt-row">
+              <span class="label" data-i18n="deposit"></span>
+              <span class="value" id="depositText"></span>
+            </div>
+            <div class="receipt-row">
+              <span class="label" data-i18n="remainingAmount"></span>
+              <span class="value" id="remainingText"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-section" id="descSection" style="display: none">
+          <h2 data-i18n="description"></h2>
+          <div class="receipt-desc" id="descText"></div>
+        </div>
+
+        <div class="receipt-footer">
+          <div class="help" data-i18n="receiptThanks"></div>
+        </div>
+      </div>
+
+      <div class="error mt-md" id="receiptError" style="display: none"></div>
+    </div>
+
+    <script src="./js/i18n.js"></script>
+    <script src="./js/common.js"></script>
+    <script src="./js/receipt.page.js"></script>
+  </body>
+</html>
+

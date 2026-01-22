@@ -173,6 +173,33 @@
     smsSent: 'SMS sent successfully',
     smsError: 'Failed to send SMS',
     smsNotConfigured: 'SMS settings not configured',
+
+    // Receipt settings
+    receiptSettings: 'Receipt Settings',
+    receiptLayoutSettings: 'Layout',
+    receiptTypographySettings: 'Typography',
+    receiptColorSettings: 'Colors',
+    receiptSize: 'Receipt Size',
+    receiptSizeA4: 'A4 (210×297mm)',
+    receiptSizeA5: 'A5 (148×210mm)',
+    receiptSize80mm: 'Thermal 80mm',
+    receiptSize58mm: 'Thermal 58mm',
+    receiptSizeBusinessCard: 'Business Card (85×55mm)',
+    receiptSizeHelp: 'Select receipt paper size (affects width and padding)',
+    receiptFontSize: 'Font Size',
+    receiptFontSmall: 'Small',
+    receiptFontMedium: 'Medium',
+    receiptFontLarge: 'Large',
+    receiptFontSizeHelp: 'Controls receipt font sizes (labels/values/titles)',
+    receiptTitleWeight: 'Title Weight',
+    receiptPriceWeight: 'Price Weight',
+    receiptFontWeightHelp: 'Controls boldness for receipt title and prices',
+    receiptBgColor: 'Background Color',
+    receiptCardBgColor: 'Card Color',
+    receiptBorderColor: 'Border Color',
+    receiptColorHelp: 'Controls receipt background, card, and border colors',
+    receiptLivePreview: 'Live Preview',
+    openReceiptPreview: 'Open Receipt Preview',
     
     // Dashboard
     pageDashboard: 'Dashboard',
@@ -186,7 +213,25 @@
     recentOrders: 'Recent Orders',
     unpaidOrders: 'Unpaid Orders',
     noOrders: 'No orders yet',
-    noUnpaidOrders: 'All orders are settled'
+    noUnpaidOrders: 'All orders are settled',
+
+    // Receipt
+    pageReceipt: 'Receipt',
+    receiptTitle: 'Receipt',
+    printReceipt: 'Print Receipt',
+    backToOrders: 'Back',
+    appName: 'Photography Tools',
+    receiptOrderId: 'Order ID',
+    receiptDate: 'Date',
+    receiptItems: 'Items',
+    receiptSummary: 'Summary',
+    receiptThanks: 'Thank you',
+    receiptMissingOrderId: 'Missing order id',
+    receiptOrderNotFound: 'Order not found',
+    receiptPreviewCustomerName: 'Sample Customer',
+    receiptPreviewItem1: 'Photo 10×15',
+    receiptPreviewItem2: 'Frame 20×30',
+    receiptPreviewDescription: 'Preview only'
   }
 
   const textsFa = {
@@ -363,6 +408,33 @@
     smsSent: 'پیامک با موفقیت ارسال شد',
     smsError: 'ارسال پیامک ناموفق بود',
     smsNotConfigured: 'تنظیمات پیامک پیکربندی نشده است',
+
+    // Receipt settings
+    receiptSettings: 'تنظیمات رسید',
+    receiptLayoutSettings: 'چیدمان',
+    receiptTypographySettings: 'تایپوگرافی',
+    receiptColorSettings: 'رنگ‌ها',
+    receiptSize: 'اندازه رسید',
+    receiptSizeA4: 'A4 (210×297 میلی‌متر)',
+    receiptSizeA5: 'A5 (148×210 میلی‌متر)',
+    receiptSize80mm: 'حرارتی 80 میلی‌متر',
+    receiptSize58mm: 'حرارتی 58 میلی‌متر',
+    receiptSizeBusinessCard: 'کارت ویزیت (85×55 میلی‌متر)',
+    receiptSizeHelp: 'انتخاب اندازه کاغذ رسید (عرض و فاصله‌ها را تغییر می‌دهد)',
+    receiptFontSize: 'اندازه فونت',
+    receiptFontSmall: 'کوچک',
+    receiptFontMedium: 'متوسط',
+    receiptFontLarge: 'بزرگ',
+    receiptFontSizeHelp: 'سایز فونت‌های رسید (عنوان/برچسب/مقدار) را تنظیم می‌کند',
+    receiptTitleWeight: 'ضخامت عنوان',
+    receiptPriceWeight: 'ضخامت قیمت',
+    receiptFontWeightHelp: 'ضخامت عنوان رسید و قیمت‌ها را تنظیم می‌کند',
+    receiptBgColor: 'رنگ پس‌زمینه',
+    receiptCardBgColor: 'رنگ کارت',
+    receiptBorderColor: 'رنگ حاشیه',
+    receiptColorHelp: 'رنگ پس‌زمینه، کارت و حاشیه رسید را تنظیم می‌کند',
+    receiptLivePreview: 'پیش‌نمایش لحظه‌ای',
+    openReceiptPreview: 'پیش‌نمایش رسید',
     
     // Dashboard
     pageDashboard: 'داشبورد',
@@ -376,7 +448,25 @@
     recentOrders: 'سفارش‌های اخیر',
     unpaidOrders: 'سفارش‌های پرداخت نشده',
     noOrders: 'هنوز سفارشی وجود ندارد',
-    noUnpaidOrders: 'همه سفارش‌ها تسویه شده‌اند'
+    noUnpaidOrders: 'همه سفارش‌ها تسویه شده‌اند',
+
+    // Receipt
+    pageReceipt: 'رسید',
+    receiptTitle: 'رسید',
+    printReceipt: 'چاپ رسید',
+    backToOrders: 'بازگشت',
+    appName: 'ابزار عکاسی',
+    receiptOrderId: 'کد سفارش',
+    receiptDate: 'تاریخ',
+    receiptItems: 'اقلام',
+    receiptSummary: 'خلاصه',
+    receiptThanks: 'با تشکر',
+    receiptMissingOrderId: 'کد سفارش نامعتبر است',
+    receiptOrderNotFound: 'سفارش پیدا نشد',
+    receiptPreviewCustomerName: 'مشتری نمونه',
+    receiptPreviewItem1: 'چاپ عکس 10×15',
+    receiptPreviewItem2: 'قاب 20×30',
+    receiptPreviewDescription: 'فقط پیش‌نمایش'
   }
 
   function getLanguage() {

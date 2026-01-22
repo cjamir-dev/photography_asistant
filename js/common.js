@@ -430,6 +430,72 @@
     document.documentElement.setAttribute('data-theme', savedTheme)
   }
 
+  const RECEIPT_SETTINGS_KEY = 'receiptStyleSettings_v1'
+
+  function getReceiptStyleSettings() {
+    const raw = localStorage.getItem(RECEIPT_SETTINGS_KEY)
+    const v = safeJsonParse(raw, {})
+    return v && typeof v === 'object' ? v : {}
+  }
+
+  function setReceiptVar(name, value) {
+    const root = document.documentElement
+    if (!value) {
+      root.style.removeProperty(name)
+      return
+    }
+    root.style.setProperty(name, String(value))
+  }
+
+  function applyReceiptStylePreset(preset) {
+    if (preset === 'small') {
+      setReceiptVar('--receipt-padding', '14px')
+      setReceiptVar('--receipt-title-size', '16px')
+      setReceiptVar('--receipt-h2-size', '14px')
+      setReceiptVar('--receipt-label-size', '12px')
+      setReceiptVar('--receipt-value-size', '12px')
+      setReceiptVar('--receipt-item-sub-size', '11px')
+      return
+    }
+
+    if (preset === 'large') {
+      setReceiptVar('--receipt-padding', '26px')
+      setReceiptVar('--receipt-title-size', '20px')
+      setReceiptVar('--receipt-h2-size', '18px')
+      setReceiptVar('--receipt-label-size', '16px')
+      setReceiptVar('--receipt-value-size', '16px')
+      setReceiptVar('--receipt-item-sub-size', '14px')
+      return
+    }
+
+    setReceiptVar('--receipt-padding', '')
+    setReceiptVar('--receipt-title-size', '')
+    setReceiptVar('--receipt-h2-size', '')
+    setReceiptVar('--receipt-label-size', '')
+    setReceiptVar('--receipt-value-size', '')
+    setReceiptVar('--receipt-item-sub-size', '')
+  }
+
+  function applyReceiptStyleSettings(settings) {
+    const s = settings || getReceiptStyleSettings()
+
+    const size = s.size || 'a4'
+    const body = document.body
+    if (body) {
+      body.classList.remove('size-a4', 'size-a5', 'size-80mm', 'size-58mm', 'size-business-card')
+      body.classList.add(`size-${size}`)
+    }
+
+    applyReceiptStylePreset(s.fontSizePreset || 'medium')
+
+    setReceiptVar('--receipt-title-weight', s.titleWeight)
+    setReceiptVar('--receipt-price-weight', s.priceWeight)
+
+    setReceiptVar('--receipt-bg', s.bgColor)
+    setReceiptVar('--receipt-card-bg', s.cardBgColor)
+    setReceiptVar('--receipt-card-border', s.borderColor)
+  }
+
   function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
     let newTheme = 'light'
@@ -501,6 +567,11 @@
       init: initTheme,
       toggle: toggleTheme,
       get: getTheme
+    },
+    receipt: {
+      key: RECEIPT_SETTINGS_KEY,
+      getSettings: getReceiptStyleSettings,
+      applySettings: applyReceiptStyleSettings
     },
     formatMoneyInput
   }

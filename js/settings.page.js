@@ -1,11 +1,19 @@
-const { ui, theme } = window.PhotoTools
-const { $, setText, setHidden } = ui
+const { ui, theme, logic } = window.PhotoTools
+const { $, setText, setHidden, escapeHtml } = ui
+const { formatMoney } = logic
 const t = window.i18n?.t || ((k) => k)
 
 const els = {
   themeSelect: $('#themeSelect'),
   languageSelect: $('#languageSelect'),
   currencySelect: $('#currencySelect'),
+  receiptSize: $('#receiptSize'),
+  receiptFontSizePreset: $('#receiptFontSizePreset'),
+  receiptTitleWeight: $('#receiptTitleWeight'),
+  receiptPriceWeight: $('#receiptPriceWeight'),
+  receiptBgColor: $('#receiptBgColor'),
+  receiptCardBgColor: $('#receiptCardBgColor'),
+  receiptBorderColor: $('#receiptBorderColor'),
   smsApiType: $('#smsApiType'),
   smsUsername: $('#smsUsername'),
   smsPassword: $('#smsPassword'),
@@ -18,6 +26,120 @@ const els = {
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
+}
+
+function rgbToHex(input) {
+  const s = String(input || '').trim()
+  if (!s) return ''
+  if (s.startsWith('#')) return s
+  const m = s.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i)
+  if (!m) return ''
+  const r = Number(m[1])
+  const g = Number(m[2])
+  const b = Number(m[3])
+  const toHex = (n) => {
+    const x = Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0')
+    return x
+  }
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+function getReceiptSettingsFromForm() {
+  return {
+    size: els.receiptSize?.value || 'a4',
+    fontSizePreset: els.receiptFontSizePreset?.value || 'medium',
+    titleWeight: els.receiptTitleWeight?.value || '700',
+    priceWeight: els.receiptPriceWeight?.value || '700',
+    bgColor: els.receiptBgColor?.value || '',
+    cardBgColor: els.receiptCardBgColor?.value || '',
+    borderColor: els.receiptBorderColor?.value || ''
+  }
+}
+
+function renderPreviewItems() {
+  const previewItemsList = $('#previewItemsList')
+  if (!previewItemsList) return
+  
+  const currency = t('currency')
+  const previewItems = [
+    { name: 'عکس 10×15', quantity: 2, unitPrice: 50000, totalPrice: 100000 },
+    { name: 'قاب 20×30', quantity: 1, unitPrice: 250000, totalPrice: 250000 }
+  ]
+  
+  const rows = previewItems.map(it => {
+    const qty = Number(it.quantity || 0)
+    const unit = formatMoney(it.unitPrice || 0)
+    const total = formatMoney(it.totalPrice || 0)
+    return `
+      <div class="receipt-item">
+        <span class="item-name">${escapeHtml(it.name || '')}</span>
+        <span class="item-details">${escapeHtml(String(qty))} × ${unit} ${currency}</span>
+        <span class="item-price">${total} ${currency}</span>
+      </div>
+    `
+  }).join('')
+  
+  previewItemsList.innerHTML = rows
+}
+
+function formatDate(value) {
+  const d = new Date(value || Date.now())
+  const lang = window.i18n?.getLanguage ? window.i18n.getLanguage() : (localStorage.getItem('language') || 'en')
+  const locale = lang === 'fa' ? 'fa-IR' : 'en-US'
+  return d.toLocaleString(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function updateReceiptPreview() {
+  const settings = getReceiptSettingsFromForm()
+  if (window.PhotoTools?.receipt?.applySettings) {
+    window.PhotoTools.receipt.applySettings(settings)
+  }
+  
+  const previewCard = $('#receiptPreviewCard')
+  if (previewCard) {
+    previewCard.classList.remove('size-a4', 'size-a5', 'size-80mm', 'size-58mm', 'size-business-card')
+    previewCard.classList.add(`size-${settings.size || 'a4'}`)
+  }
+  
+  const previewDate = $('#previewDate')
+  if (previewDate) {
+    previewDate.textContent = formatDate(new Date())
+  }
+  
+  renderPreviewItems()
+}
+
+function applyReceiptSettingsPreview() {
+  updateReceiptPreview()
+}
+
+function loadReceiptSettings() {
+  const stored = window.PhotoTools?.receipt?.getSettings ? window.PhotoTools.receipt.getSettings() : {}
+  const size = stored.size || 'a4'
+  if (els.receiptSize) els.receiptSize.value = size
+  
+  const preset = stored.fontSizePreset || 'medium'
+  if (els.receiptFontSizePreset) els.receiptFontSizePreset.value = preset
+
+  if (els.receiptTitleWeight) els.receiptTitleWeight.value = String(stored.titleWeight || '700')
+  if (els.receiptPriceWeight) els.receiptPriceWeight.value = String(stored.priceWeight || '700')
+
+  const css = getComputedStyle(document.documentElement)
+  const bg = stored.bgColor || rgbToHex(css.getPropertyValue('--receipt-bg')) || '#f5f5f7'
+  const cardBg = stored.cardBgColor || rgbToHex(css.getPropertyValue('--receipt-card-bg')) || '#ffffff'
+  const border = stored.borderColor || rgbToHex(css.getPropertyValue('--receipt-card-border')) || '#e8e8ed'
+
+  if (els.receiptBgColor) els.receiptBgColor.value = bg
+  if (els.receiptCardBgColor) els.receiptCardBgColor.value = cardBg
+  if (els.receiptBorderColor) els.receiptBorderColor.value = border
+
+  updateReceiptPreview()
 }
 
 function loadSettings() {
@@ -47,6 +169,8 @@ function loadSettings() {
     els.smsMessageTemplate.value = smsSettings.messageTemplate || '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان'
   }
   if (els.smsEnabled) els.smsEnabled.checked = smsSettings.enabled === true
+
+  loadReceiptSettings()
 }
 
 function saveTheme(themeValue) {
@@ -158,6 +282,13 @@ function saveSettings() {
     enabled: els.smsEnabled?.checked || false
   }
   localStorage.setItem('smsSettings', JSON.stringify(smsSettings))
+
+  const receiptSettingsKey = window.PhotoTools?.receipt?.key || 'receiptStyleSettings_v1'
+  const receiptSettings = getReceiptSettingsFromForm()
+  localStorage.setItem(receiptSettingsKey, JSON.stringify(receiptSettings))
+  if (window.PhotoTools?.receipt?.applySettings) {
+    window.PhotoTools.receipt.applySettings(receiptSettings)
+  }
   
   // Force reflow برای اطمینان از اعمال CSS
   void htmlElement.offsetHeight
@@ -227,6 +358,31 @@ async function init() {
   if (els.currencySelect) {
     els.currencySelect.addEventListener('change', onCurrencyChange)
   }
+
+  if (els.receiptSize) {
+    els.receiptSize.addEventListener('change', updateReceiptPreview)
+  }
+  if (els.receiptFontSizePreset) {
+    els.receiptFontSizePreset.addEventListener('change', updateReceiptPreview)
+  }
+  if (els.receiptTitleWeight) {
+    els.receiptTitleWeight.addEventListener('change', updateReceiptPreview)
+  }
+  if (els.receiptPriceWeight) {
+    els.receiptPriceWeight.addEventListener('change', updateReceiptPreview)
+  }
+  if (els.receiptBgColor) {
+    els.receiptBgColor.addEventListener('input', updateReceiptPreview)
+  }
+  if (els.receiptCardBgColor) {
+    els.receiptCardBgColor.addEventListener('input', updateReceiptPreview)
+  }
+  if (els.receiptBorderColor) {
+    els.receiptBorderColor.addEventListener('input', updateReceiptPreview)
+  }
+  
+  updateReceiptPreview()
+
   els.saveSettingsBtn.addEventListener('click', saveSettings)
   
   if (els.logoutBtn) {
