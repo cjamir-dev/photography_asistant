@@ -266,6 +266,44 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  if (pathname === '/api/auth/change-username' && method === 'POST') {
+    requireAuth(req, res, () => {
+      let body = ''
+      req.on('data', chunk => {
+        body += chunk.toString()
+      })
+      req.on('end', () => {
+        try {
+          const { newUsername, password } = JSON.parse(body)
+          
+          if (!newUsername || newUsername.length < 3) {
+            return sendError(res, 'Username must be at least 3 characters', 400)
+          }
+          
+          if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+            return sendError(res, 'Username can only contain letters, numbers, and underscores', 400)
+          }
+          
+          const auth = readAuth()
+          const passwordHash = hashPassword(password)
+          
+          if (passwordHash !== auth.passwordHash) {
+            return sendError(res, 'Password is incorrect', 401)
+          }
+          
+          auth.username = newUsername
+          writeAuth(auth)
+          
+          console.log('[AUTH] Username changed to:', newUsername)
+          sendJson(res, { success: true, username: newUsername })
+        } catch (e) {
+          sendError(res, 'Invalid request', 400)
+        }
+      })
+    })
+    return
+  }
+
   if (pathname === '/api/auth/change-password' && method === 'POST') {
     requireAuth(req, res, () => {
       let body = ''
@@ -290,11 +328,20 @@ const server = http.createServer((req, res) => {
           auth.passwordHash = hashPassword(newPassword)
           writeAuth(auth)
           
+          console.log('[AUTH] Password changed')
           sendJson(res, { success: true })
         } catch (e) {
           sendError(res, 'Invalid request', 400)
         }
       })
+    })
+    return
+  }
+
+  if (pathname === '/api/auth/get-username' && method === 'GET') {
+    requireAuth(req, res, () => {
+      const auth = readAuth()
+      sendJson(res, { success: true, username: auth.username })
     })
     return
   }

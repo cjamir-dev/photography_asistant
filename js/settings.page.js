@@ -29,6 +29,12 @@ const els = {
   changePasswordBtn: $('#changePasswordBtn'),
   changePasswordError: $('#changePasswordError'),
   changePasswordSuccess: $('#changePasswordSuccess'),
+  currentUsername: $('#currentUsername'),
+  newUsername: $('#newUsername'),
+  passwordForUsername: $('#passwordForUsername'),
+  changeUsernameBtn: $('#changeUsernameBtn'),
+  changeUsernameError: $('#changeUsernameError'),
+  changeUsernameSuccess: $('#changeUsernameSuccess'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
@@ -164,6 +170,9 @@ function loadSettings() {
   // بارگذاری تنظیمات واحد ارز
   const savedCurrency = localStorage.getItem('currency') || 'toman'
   if (els.currencySelect) els.currencySelect.value = savedCurrency
+  
+  // Load current username
+  loadCurrentUsername()
   
   // بارگذاری تنظیمات SMS
   const smsSettings = JSON.parse(localStorage.getItem('smsSettings') || '{}')
@@ -308,6 +317,95 @@ function saveSettings() {
   showSettingsOk(t('settingsSaved') || 'Settings saved successfully')
 }
 
+async function loadCurrentUsername() {
+  try {
+    const { auth } = window.PhotoTools
+    const response = await fetch('/api/auth/get-username', {
+      headers: auth.getAuthHeaders()
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success && data.username) {
+        if (els.currentUsername) {
+          els.currentUsername.value = data.username
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load username:', e)
+  }
+}
+
+async function handleChangeUsername() {
+  setHidden(els.changeUsernameError, true)
+  setHidden(els.changeUsernameSuccess, true)
+  
+  const newUsername = els.newUsername?.value?.trim() || ''
+  const password = els.passwordForUsername?.value?.trim() || ''
+  
+  if (!newUsername || !password) {
+    setText(els.changeUsernameError, t('fillAllFields') || 'Please fill all fields')
+    setHidden(els.changeUsernameError, false)
+    return
+  }
+  
+  if (newUsername.length < 3) {
+    setText(els.changeUsernameError, t('usernameTooShort') || 'Username must be at least 3 characters')
+    setHidden(els.changeUsernameError, false)
+    return
+  }
+  
+  if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+    setText(els.changeUsernameError, t('usernameInvalidChars') || 'Username can only contain letters, numbers, and underscores')
+    setHidden(els.changeUsernameError, false)
+    return
+  }
+  
+  if (newUsername === els.currentUsername?.value) {
+    setText(els.changeUsernameError, t('usernameSame') || 'New username must be different from current username')
+    setHidden(els.changeUsernameError, false)
+    return
+  }
+  
+  try {
+    const { auth } = window.PhotoTools
+    const response = await fetch('/api/auth/change-username', {
+      method: 'POST',
+      headers: auth.getAuthHeaders(),
+      body: JSON.stringify({ newUsername, password })
+    })
+    
+    const data = await response.json()
+    
+    if (response.ok && data.success) {
+      setText(els.changeUsernameSuccess, t('usernameChanged') || 'Username changed successfully')
+      setHidden(els.changeUsernameSuccess, false)
+      els.newUsername.value = ''
+      els.passwordForUsername.value = ''
+      
+      // Update current username display
+      if (els.currentUsername) {
+        els.currentUsername.value = data.username || newUsername
+      }
+      
+      // Update localStorage
+      localStorage.setItem('username', data.username || newUsername)
+      
+      setTimeout(() => {
+        setHidden(els.changeUsernameSuccess, true)
+      }, 3000)
+    } else {
+      setText(els.changeUsernameError, data.error || t('usernameChangeError') || 'Failed to change username')
+      setHidden(els.changeUsernameError, false)
+      els.passwordForUsername.value = ''
+    }
+  } catch (e) {
+    setText(els.changeUsernameError, t('usernameChangeError') || 'Failed to change username')
+    setHidden(els.changeUsernameError, false)
+  }
+}
+
 async function handleChangePassword() {
   setHidden(els.changePasswordError, true)
   setHidden(els.changePasswordSuccess, true)
@@ -450,6 +548,10 @@ async function init() {
 
   els.saveSettingsBtn.addEventListener('click', saveSettings)
   
+  if (els.changeUsernameBtn) {
+    els.changeUsernameBtn.addEventListener('click', handleChangeUsername)
+  }
+  
   if (els.changePasswordBtn) {
     els.changePasswordBtn.addEventListener('click', handleChangePassword)
   }
@@ -476,14 +578,7 @@ async function init() {
       els.sidebar.classList.add('collapsed')
     }
     
-    const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
-    sidebarItems.forEach(item => {
-      const textSpan = item.querySelector('.sidebar-text')
-      if (textSpan && textSpan.hasAttribute('data-i18n')) {
-        const i18nKey = textSpan.getAttribute('data-i18n')
-        item.setAttribute('data-tooltip', t(i18nKey))
-      }
-    })
+    // Tooltips are updated automatically by initI18n()
   }
 }
 

@@ -463,6 +463,31 @@
     })
   }
 
+  function updateSidebarTooltips() {
+    if (!window.i18n) {
+      // Retry after a short delay if i18n is not ready
+      setTimeout(updateSidebarTooltips, 100)
+      return
+    }
+    const t = window.i18n.t || ((k) => k)
+    
+    const sidebarItems = document.querySelectorAll('.sidebar-item')
+    sidebarItems.forEach(item => {
+      const textSpan = item.querySelector('.sidebar-text')
+      if (textSpan && textSpan.hasAttribute('data-i18n')) {
+        const i18nKey = textSpan.getAttribute('data-i18n')
+        const translatedText = t(i18nKey)
+        // Always set tooltip, even if translation equals key (fallback to key)
+        if (translatedText) {
+          item.setAttribute('data-tooltip', translatedText)
+        } else if (i18nKey) {
+          // Fallback to key if translation not found
+          item.setAttribute('data-tooltip', i18nKey)
+        }
+      }
+    })
+  }
+
   function initI18n() {
     if (!window.i18n) return
     
@@ -487,6 +512,26 @@
         el.placeholder = text
       }
     })
+    
+    // Update title and aria-label attributes
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const key = el.getAttribute('data-i18n-title')
+      const text = window.i18n.t(key)
+      if (text && text !== key) {
+        el.title = text
+      }
+    })
+    
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+      const key = el.getAttribute('data-i18n-aria-label')
+      const text = window.i18n.t(key)
+      if (text && text !== key) {
+        el.setAttribute('aria-label', text)
+      }
+    })
+    
+    // Update sidebar tooltips
+    updateSidebarTooltips()
   }
 
   function downloadJson(filename, data) {
@@ -665,7 +710,8 @@
       setHidden,
       escapeHtml,
       readFileAsDataUrl,
-      initI18n
+      initI18n,
+      updateSidebarTooltips
     },
     theme: {
       init: initTheme,

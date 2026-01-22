@@ -276,15 +276,7 @@ async function init() {
       els.sidebar.classList.add('collapsed')
     }
     
-    // Set tooltips for sidebar items
-    const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
-    sidebarItems.forEach(item => {
-      const textSpan = item.querySelector('.sidebar-text')
-      if (textSpan && textSpan.hasAttribute('data-i18n')) {
-        const i18nKey = textSpan.getAttribute('data-i18n')
-        item.setAttribute('data-tooltip', t(i18nKey))
-      }
-    })
+    // Tooltips are updated automatically by initI18n()
   }
 }
 
