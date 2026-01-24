@@ -1,3 +1,8 @@
+if (!window.PhotoTools) {
+  console.error('PhotoTools not available')
+  throw new Error('PhotoTools not initialized')
+}
+
 const { storage, logic, ui, file } = window.PhotoTools
 const { loadProducts, loadOrders, saveProducts, saveOrders } = storage
 const { downloadJson, readJsonFile } = file
@@ -246,23 +251,38 @@ async function checkAuth() {
 }
 
 async function init() {
-  if (!checkAuth()) return
+  if (!(await checkAuth())) return
   
   ui.initI18n()
+  const { auth } = window.PhotoTools
   auth.initSessionTimeout()
   
   await initData()
   
-  els.exportOrdersBtn.addEventListener('click', exportOrders)
+  if (els.exportOrdersBtn) {
+    els.exportOrdersBtn.addEventListener('click', exportOrders)
+  }
   if (els.exportOrdersExcelBtn) {
     els.exportOrdersExcelBtn.addEventListener('click', exportOrdersExcel)
   }
-  els.importOrdersBtn.addEventListener('click', importOrders)
-  els.importOrdersFile.addEventListener('change', importOrders)
-  els.exportProductsBtn.addEventListener('click', exportProducts)
-  els.importProductsBtn.addEventListener('click', importProducts)
-  els.importProductsFile.addEventListener('change', importProducts)
-  els.logoutBtn.addEventListener('click', handleLogout)
+  if (els.importOrdersBtn) {
+    els.importOrdersBtn.addEventListener('click', importOrders)
+  }
+  if (els.importOrdersFile) {
+    els.importOrdersFile.addEventListener('change', importOrders)
+  }
+  if (els.exportProductsBtn) {
+    els.exportProductsBtn.addEventListener('click', exportProducts)
+  }
+  if (els.importProductsBtn) {
+    els.importProductsBtn.addEventListener('click', importProducts)
+  }
+  if (els.importProductsFile) {
+    els.importProductsFile.addEventListener('change', importProducts)
+  }
+  if (els.logoutBtn) {
+    els.logoutBtn.addEventListener('click', handleLogout)
+  }
   
   if (els.sidebarToggle && els.sidebar) {
     els.sidebarToggle.addEventListener('click', () => {
