@@ -1,58 +1,46 @@
-# Photography Tools - Order Management App
+# سامانه مدیریت سفارش عکاسی
 
-A simple HTML application for managing photography shop orders.
+اپ ساده و محلی برای ثبت سفارش، مدیریت محصول، تسویه و پیامک.
 
-## Features
+## اجرا (ساده‌ترین روش)
 
-- Customer order registration
-- Product management
-- Deposit and remaining amount tracking
-- Customer search by phone number
-- Automatic data persistence to local files
-- Excel-friendly CSV export of orders with per-size counts
+1. [Node.js](https://nodejs.org/) را نصب کنید (نسخه ۱۸ یا بالاتر)
+2. روی `start-server.bat` دوبار کلیک کنید
+3. مرورگر روی `http://localhost:3000` باز می‌شود
 
-## Setup
+ورود پیش‌فرض: `admin` / `admin`  
+بعد از اولین ورود، از **تنظیمات** رمز را عوض کنید.
 
-### Quick Start
+## قابلیت‌ها
 
-**Option 1: Double-click `start-server.bat`** (Easiest)
+- ثبت سفارش با بیعانه / مانده / یادداشت / تاریخ تحویل
+- لیست همه سفارش‌ها با فیلتر و جستجو
+- تسویه کامل یا جزئی، تغییر وضعیت، ویرایش و حذف
+- چاپ رسید
+- مدیریت محصولات
+- داشبورد آماری
+- پیامک هنگام ثبت سفارش (اختیاری)
+- خروجی / ورود JSON و CSV + پشتیبان خودکار
 
-**Option 2: Run in Terminal**
+## امنیت
 
-If you get PowerShell execution policy error, use one of these:
+- ورود با session سمت سرور (کوکی HttpOnly)
+- رمز عبور با hash در `data/auth.json`
+- تنظیمات پیامک روی سرور در `data/sms-settings.json`
+- APIها بدون ورود در دسترس نیستند
+
+## داده و پشتیبان
+
+- `data/products.json` — محصولات
+- `data/orders.json` — سفارش‌ها
+- `data/backups/YYYY-MM-DD/` — پشتیبان هنگام استارت سرور (۷ روز اخیر)
+
+برای بکاپ دستی: پوشه `data` را کپی کنید یا از صفحه **فایل** دکمه پشتیبان‌گیری را بزنید.
+
+## اجرای دستی
 
 ```bash
-# Method 1: Use Command Prompt (cmd) instead of PowerShell
 node server.js
-
-# Method 2: Bypass PowerShell policy (one-time)
-powershell -ExecutionPolicy Bypass -Command "npm start"
-
-# Method 3: Change PowerShell policy (requires admin)
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-Then open browser: `http://localhost:3000`
-
-### Option 3: Direct File Access (Fallback)
-
-If server is not running, the app will use browser localStorage as fallback.
-
-## Data Storage
-
-Data is automatically saved to:
-- `data/products.json` - Product database
-- `data/orders.json` - Orders database
-
-These files are created automatically in the project directory.
-
-## Usage
-
-1. **Manage Products**: Go to "Manage Products" page to add/edit products
-2. **Create Order**: Enter customer name and phone, add products to cart, set deposit, finalize order
-3. **Find Customer**: Search by phone number to view previous orders
-4. **Settle Payment**: Click "Settle" button on orders with remaining balance
-
-## Backup
-
-Simply copy the `data` folder to backup your data. The files are standard JSON format.
+سپس بروید به: http://localhost:3000

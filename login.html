@@ -1,18 +1,9 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Login</title>
-    <script>
-      (function() {
-        const savedTheme = localStorage.getItem('theme') || 'light'
-        const savedLanguage = localStorage.getItem('language') || 'en'
-        document.documentElement.setAttribute('data-theme', savedTheme)
-        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
-        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
-      })()
-    </script>
+    <title data-i18n="pageLogin">ورود</title>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -22,46 +13,51 @@
           <div class="login-image">
             <div class="login-image-overlay">
               <div class="login-image-content">
-                <h2>Photography Assistant</h2>
-                <p>Capture your moments with professional tools</p>
+                <h2 data-i18n="shopName">استودیو عکاسی</h2>
+                <p data-i18n="loginTitle">ورود به سامانه</p>
               </div>
             </div>
-            <img src="./data/login.png" alt="Photography" class="login-image-img" />
+            <img src="./data/login.png" alt="Photography" class="login-image-img" onerror="this.style.display='none'" />
           </div>
           
           <div class="login-form-wrapper">
+            <div class="login-top-actions">
+              <select id="loginLangSelect" class="lang-select" aria-label="Language">
+                <option value="fa">فارسی</option>
+                <option value="en">English</option>
+              </select>
+            </div>
             <div class="login-header">
-              <h1>Sign In</h1>
-              <p class="login-subtitle">Welcome back! Please sign in to continue</p>
+              <h1 data-i18n="loginTitle">ورود به سامانه</h1>
+              <p class="login-subtitle" data-i18n="loginSubtitle"></p>
             </div>
 
             <form id="loginForm" class="login-form">
               <div class="error" id="loginError" style="display: none"></div>
               
               <label>
-                <span>Username</span>
-                <input id="username" type="text" required autocomplete="username" placeholder="Enter your username" />
+                <span data-i18n="username">نام کاربری</span>
+                <input id="username" type="text" required autocomplete="username" />
               </label>
 
               <label>
-                <span>Password</span>
-                <input id="password" type="password" required autocomplete="current-password" placeholder="Enter your password" />
+                <span data-i18n="password">رمز عبور</span>
+                <input id="password" type="password" required autocomplete="current-password" />
               </label>
 
-              <button class="btn primary" type="submit" style="width: 100%; margin-top: 8px">
-                Sign In
-              </button>
+              <button class="btn primary" type="submit" style="width: 100%; margin-top: 8px" data-i18n="loginBtn">Sign In</button>
             </form>
 
             <div class="login-footer">
-              <p class="help">Default credentials: admin / admin</p>
+              <p class="help" data-i18n="loginDefaultHint"></p>
             </div>
           </div>
         </div>
       </div>
     </div>
 
+    <script src="./js/i18n.js"></script>
+    <script src="./js/common.js"></script>
     <script src="./js/login.page.js"></script>
   </body>
 </html>
-

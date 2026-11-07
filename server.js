@@ -1,972 +1,773 @@
 const http = require('http')
+const https = require('https')
 const fs = require('fs')
 const path = require('path')
-const url = require('url')
 const crypto = require('crypto')
+const { URL } = require('url')
 
-// Check if required packages are installed
-let axios
-let bcrypt
-try {
-  axios = require('axios')
-  console.log('[INFO] axios loaded successfully')
-} catch (error) {
-  console.error('[ERROR] axios is not installed!')
-  console.error('[ERROR] Please run: npm install')
-  process.exit(1)
-}
-
-try {
-  bcrypt = require('bcryptjs')
-  console.log('[INFO] bcryptjs loaded successfully')
-} catch (error) {
-  console.error('[ERROR] bcryptjs is not installed!')
-  console.error('[ERROR] Attempting to install bcryptjs...')
-  console.error('[ERROR] Please run: npm install bcryptjs')
-  console.error('[ERROR] Or run: npm install')
-  console.error('[ERROR] Server will exit. Please install bcryptjs and restart.')
-  process.exit(1)
-}
-
-const PORT = 3000
+const PORT = Number(process.env.PORT) || 3000
 const DATA_DIR = path.join(__dirname, 'data')
-
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true })
-}
-
+const BACKUP_DIR = path.join(DATA_DIR, 'backups')
 const PRODUCTS_FILE = path.join(DATA_DIR, 'products.json')
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json')
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json')
-const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json')
+const SMS_FILE = path.join(DATA_DIR, 'sms-settings.json')
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+const BACKUP_KEEP_DAYS = 7
 
-function ensureFile(filePath, defaultContent = '[]') {
+const ORDER_STATUSES = ['registered', 'printing', 'ready', 'delivered', 'cancelled']
+const sessions = new Map()
+const fileLocks = new Map()
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+}
+
+function ensureJsonArray(filePath) {
   if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, defaultContent, 'utf8')
+    atomicWriteSync(filePath, '[]')
   }
 }
 
-ensureFile(PRODUCTS_FILE)
-ensureFile(ORDERS_FILE)
-// Auth file will be initialized asynchronously
-ensureFile(SESSIONS_FILE)
-
-// Initialize auth file with bcrypt (async)
-async function initAuthFile() {
-  if (!fs.existsSync(AUTH_FILE)) {
-    try {
-      const defaultHash = await hashPassword('admin')
-      fs.writeFileSync(AUTH_FILE, JSON.stringify({ username: 'admin', passwordHash: defaultHash }, null, 2), 'utf8')
-      console.log('[AUTH] Default auth file created with bcrypt')
-    } catch (e) {
-      console.error('[AUTH] Error creating auth file:', e.message)
-    }
-  } else {
-    // Check if we need to migrate from SHA-256 to bcrypt
-    try {
-      const auth = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'))
-      if (auth.passwordHash && auth.passwordHash.length === 64 && /^[a-f0-9]+$/i.test(auth.passwordHash)) {
-        console.log('[AUTH] Legacy SHA-256 hash detected. Will migrate on next login.')
-      }
-    } catch (e) {
-      // Ignore errors
-    }
-  }
+function nowIso() {
+  return new Date().toISOString()
 }
 
-// Rate limiting برای login
-const loginAttempts = new Map()
-const MAX_LOGIN_ATTEMPTS = 5
-const LOGIN_LOCKOUT_TIME = 15 * 60 * 1000 // 15 دقیقه
-
-// Session management
-const SESSION_DURATION = 24 * 60 * 60 * 1000 // 24 ساعت
-
-// Security constants
-const MAX_BODY_SIZE = 10 * 1024 * 1024 // 10MB
-const BCRYPT_ROUNDS = 10
-
-// Password hashing with bcrypt
-async function hashPassword(password) {
-  if (!password || typeof password !== 'string') {
-    throw new Error('Invalid password')
-  }
-  if (password.length < 4 || password.length > 128) {
-    throw new Error('Password length must be between 4 and 128 characters')
-  }
-  return await bcrypt.hash(password, BCRYPT_ROUNDS)
+function uid(prefix = 'id') {
+  return `${prefix}_${Date.now().toString(16)}_${crypto.randomBytes(6).toString('hex')}`
 }
 
-async function comparePassword(password, hash) {
-  if (!password || !hash) {
-    return false
-  }
+function hashPassword(password, salt) {
+  const usedSalt = salt || crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(String(password), usedSalt, 64).toString('hex')
+  return { salt: usedSalt, hash }
+}
+
+function verifyPassword(password, salt, hash) {
+  const next = crypto.scryptSync(String(password), salt, 64).toString('hex')
+  const a = Buffer.from(next, 'hex')
+  const b = Buffer.from(hash, 'hex')
+  if (a.length !== b.length) return false
+  return crypto.timingSafeEqual(a, b)
+}
+
+function atomicWriteSync(filePath, content) {
+  const dir = path.dirname(filePath)
+  ensureDir(dir)
+  const tmp = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`)
+  fs.writeFileSync(tmp, content, 'utf8')
+  fs.renameSync(tmp, filePath)
+}
+
+async function withFileLock(filePath, fn) {
+  const prev = fileLocks.get(filePath) || Promise.resolve()
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const current = prev.then(() => gate)
+  fileLocks.set(filePath, current)
+  await prev
   try {
-    return await bcrypt.compare(password, hash)
-  } catch (e) {
-    console.error('[AUTH] Error comparing password:', e.message)
-    return false
+    return await fn()
+  } finally {
+    release()
+    if (fileLocks.get(filePath) === current) fileLocks.delete(filePath)
   }
 }
 
-// Legacy password migration helper
-async function migrateLegacyPassword(legacyHash, password) {
-  // Check if it's a legacy SHA-256 hash (64 hex characters)
-  if (legacyHash && legacyHash.length === 64 && /^[a-f0-9]+$/i.test(legacyHash)) {
-    const sha256Hash = crypto.createHash('sha256').update(password).digest('hex')
-    if (sha256Hash === legacyHash) {
-      // Password matches legacy hash, return new bcrypt hash
-      return await hashPassword(password)
-    }
-  }
-  return null
-}
-
-function generateToken() {
-  return crypto.randomBytes(32).toString('hex')
-}
-
-function readAuth() {
-  try {
-    const content = fs.readFileSync(AUTH_FILE, 'utf8')
-    const auth = JSON.parse(content)
-    // Validate auth structure
-    if (!auth.username || !auth.passwordHash) {
-      console.log('[AUTH] Invalid auth file structure, recreating...')
-      return null
-    }
-    // Validate username format
-    if (typeof auth.username !== 'string' || auth.username.length < 3 || auth.username.length > 50) {
-      console.log('[AUTH] Invalid username format')
-      return null
-    }
-    // Validate password hash format (bcrypt hash starts with $2a$, $2b$, or $2y$)
-    if (typeof auth.passwordHash !== 'string' || auth.passwordHash.length < 10) {
-      console.log('[AUTH] Invalid password hash format')
-      return null
-    }
-    return auth
-  } catch (e) {
-    console.log('[AUTH] Error reading auth file:', e.message)
-    return null
-  }
-}
-
-function writeAuth(auth) {
-  fs.writeFileSync(AUTH_FILE, JSON.stringify(auth, null, 2), 'utf8')
-}
-
-function readSessions() {
-  try {
-    const content = fs.readFileSync(SESSIONS_FILE, 'utf8').trim()
-    if (!content || content === '[]' || content === '') {
-      return {}
-    }
-    const parsed = JSON.parse(content)
-    // اگر array بود، به object تبدیل کن
-    if (Array.isArray(parsed)) {
-      return {}
-    }
-    return parsed
-  } catch (e) {
-    console.log('[AUTH] Error reading sessions file:', e.message)
-    return {}
-  }
-}
-
-function writeSessions(sessions) {
-  fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf8')
-}
-
-function isValidSession(token) {
-  if (!token || token.length < 10) {
-    console.log('[AUTH] Invalid token format')
-    return false
-  }
-  
-  const sessions = readSessions()
-  const session = sessions[token]
-  if (!session) {
-    console.log('[AUTH] Session not found for token:', token.substring(0, 16) + '...')
-    return false
-  }
-  
-  const now = Date.now()
-  if (now > session.expires) {
-    console.log('[AUTH] Session expired')
-    delete sessions[token]
-    writeSessions(sessions)
-    return false
-  }
-  
-  // Update last activity
-  session.lastActivity = now
-  writeSessions(sessions)
-  console.log('[AUTH] Session valid for user:', session.username)
-  return true
-}
-
-function createSession(username) {
-  const sessions = readSessions()
-  const token = generateToken()
-  const now = Date.now()
-  
-  sessions[token] = {
-    username,
-    createdAt: now,
-    expires: now + SESSION_DURATION,
-    lastActivity: now
-  }
-  
-  // Cleanup expired sessions
-  Object.keys(sessions).forEach(key => {
-    if (sessions[key].expires < now) {
-      delete sessions[key]
-    }
-  })
-  
-  writeSessions(sessions)
-  console.log('[AUTH] Session created:', { token: token.substring(0, 16) + '...', username, expires: new Date(now + SESSION_DURATION).toISOString() })
-  return token
-}
-
-function requireAuth(req, res, callback) {
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return sendError(res, 'Unauthorized', 401)
-  }
-  
-  const token = authHeader.substring(7)
-  if (!isValidSession(token)) {
-    return sendError(res, 'Invalid or expired session', 401)
-  }
-  
-  callback()
-}
-
-function readJsonFile(filePath) {
+function readJson(filePath, fallback) {
   try {
     const content = fs.readFileSync(filePath, 'utf8')
     return JSON.parse(content)
   } catch {
-    return []
+    return fallback
   }
 }
 
-function writeJsonFile(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8')
+async function readJsonLocked(filePath, fallback) {
+  return withFileLock(filePath, async () => readJson(filePath, fallback))
+}
+
+async function writeJsonLocked(filePath, data) {
+  return withFileLock(filePath, async () => {
+    atomicWriteSync(filePath, JSON.stringify(data, null, 2))
+    return data
+  })
+}
+
+function ensureAuth() {
+  if (fs.existsSync(AUTH_FILE)) return readJson(AUTH_FILE, null)
+  const { salt, hash } = hashPassword('admin')
+  const auth = {
+    username: 'admin',
+    salt,
+    hash,
+    mustChangePassword: true,
+    createdAt: nowIso(),
+    updatedAt: nowIso()
+  }
+  atomicWriteSync(AUTH_FILE, JSON.stringify(auth, null, 2))
+  console.log('[AUTH] Default user created: admin / admin (change password after login)')
+  return auth
+}
+
+function ensureSmsSettings() {
+  if (fs.existsSync(SMS_FILE)) return
+  const defaults = {
+    apiType: 'payamak-vip',
+    username: '',
+    password: '',
+    fromNumber: '',
+    messageTemplate: '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان',
+    enabled: false,
+    updatedAt: nowIso()
+  }
+  atomicWriteSync(SMS_FILE, JSON.stringify(defaults, null, 2))
+}
+
+function runStartupBackup() {
+  ensureDir(BACKUP_DIR)
+  const day = new Date().toISOString().slice(0, 10)
+  const dest = path.join(BACKUP_DIR, day)
+  ensureDir(dest)
+  for (const name of ['products.json', 'orders.json', 'auth.json', 'sms-settings.json']) {
+    const src = path.join(DATA_DIR, name)
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, path.join(dest, name))
+    }
+  }
+  const entries = fs.readdirSync(BACKUP_DIR, { withFileTypes: true })
+    .filter(e => e.isDirectory())
+    .map(e => e.name)
+    .sort()
+  while (entries.length > BACKUP_KEEP_DAYS) {
+    const old = entries.shift()
+    fs.rmSync(path.join(BACKUP_DIR, old), { recursive: true, force: true })
+  }
+}
+
+function parseCookies(req) {
+  const header = req.headers.cookie || ''
+  const out = {}
+  header.split(';').forEach(part => {
+    const idx = part.indexOf('=')
+    if (idx === -1) return
+    const key = part.slice(0, idx).trim()
+    const val = part.slice(idx + 1).trim()
+    if (key) out[key] = decodeURIComponent(val)
+  })
+  return out
+}
+
+function createSession(username) {
+  const token = crypto.randomBytes(32).toString('hex')
+  sessions.set(token, {
+    username,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + SESSION_TTL_MS
+  })
+  return token
+}
+
+function getSession(req) {
+  const cookies = parseCookies(req)
+  const token = cookies.session
+  if (!token) return null
+  const session = sessions.get(token)
+  if (!session) return null
+  if (session.expiresAt < Date.now()) {
+    sessions.delete(token)
+    return null
+  }
+  session.expiresAt = Date.now() + SESSION_TTL_MS
+  return { token, session }
+}
+
+function setSessionCookie(res, token) {
+  const maxAge = Math.floor(SESSION_TTL_MS / 1000)
+  res.setHeader('Set-Cookie', `session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`)
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', 'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0')
 }
 
 function sendJson(res, data, statusCode = 200) {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify(data))
+  const body = JSON.stringify(data)
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store'
+  })
+  res.end(body)
 }
 
 function sendError(res, message, statusCode = 400) {
   sendJson(res, { error: message }, statusCode)
 }
 
-// Input validation and sanitization
-function validateUsername(username) {
-  if (!username || typeof username !== 'string') {
-    return { valid: false, error: 'Username is required' }
-  }
-  const trimmed = username.trim()
-  if (trimmed.length < 3 || trimmed.length > 50) {
-    return { valid: false, error: 'Username must be between 3 and 50 characters' }
-  }
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
-    return { valid: false, error: 'Username can only contain letters, numbers, and underscores' }
-  }
-  return { valid: true, value: trimmed }
-}
-
-function validatePassword(password) {
-  if (!password || typeof password !== 'string') {
-    return { valid: false, error: 'Password is required' }
-  }
-  if (password.length < 4 || password.length > 128) {
-    return { valid: false, error: 'Password must be between 4 and 128 characters' }
-  }
-  // Check for common weak passwords
-  const weakPasswords = ['1234', 'password', 'admin', '12345', 'qwerty']
-  if (weakPasswords.includes(password.toLowerCase())) {
-    return { valid: false, error: 'Password is too weak' }
-  }
-  return { valid: true, value: password }
-}
-
-function sanitizeString(input, maxLength = 1000) {
-  if (typeof input !== 'string') {
-    return ''
-  }
-  // Remove null bytes and control characters (except newlines and tabs)
-  let sanitized = input.replace(/\0/g, '').replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '')
-  // Limit length
-  if (sanitized.length > maxLength) {
-    sanitized = sanitized.substring(0, maxLength)
-  }
-  return sanitized.trim()
-}
-
-function validateJsonArray(data, maxItems = 10000) {
-  if (!Array.isArray(data)) {
-    return { valid: false, error: 'Data must be an array' }
-  }
-  if (data.length > maxItems) {
-    return { valid: false, error: `Array cannot contain more than ${maxItems} items` }
-  }
-  return { valid: true, value: data }
-}
-
-// Read request body with size limit
-function readRequestBody(req, maxSize = MAX_BODY_SIZE) {
+function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = ''
-    let size = 0
-    
     req.on('data', chunk => {
-      size += chunk.length
-      if (size > maxSize) {
+      body += chunk.toString()
+      if (body.length > 15 * 1024 * 1024) {
+        reject(new Error('Body too large'))
         req.destroy()
-        reject(new Error('Request body too large'))
+      }
+    })
+    req.on('end', () => resolve(body))
+    req.on('error', reject)
+  })
+}
+
+async function readJsonBody(req) {
+  const raw = await readBody(req)
+  if (!raw) return {}
+  return JSON.parse(raw)
+}
+
+function normalizeOrder(order) {
+  const total = Math.max(0, Math.round(Number(order.totalAmount) || 0))
+  const deposit = Math.max(0, Math.round(Number(order.deposit) || 0))
+  const remaining = Math.max(0, total - deposit)
+  const status = ORDER_STATUSES.includes(order.status) ? order.status : 'registered'
+  const payments = Array.isArray(order.payments) ? order.payments : []
+  return {
+    ...order,
+    totalAmount: total,
+    deposit,
+    remainingAmount: remaining,
+    status,
+    dueDate: order.dueDate || '',
+    description: order.description || order.note || '',
+    payments,
+    updatedAt: order.updatedAt || order.createdAt || nowIso()
+  }
+}
+
+function validateOrderPayload(data, { requireId = false } = {}) {
+  if (!data || typeof data !== 'object') return { ok: false, error: 'invalid_data' }
+  if (requireId && !data.id) return { ok: false, error: 'order_id_required' }
+  const lastName = String(data.customer?.lastName || '').trim()
+  const phone = String(data.customer?.phone || '').trim()
+  if (!lastName) return { ok: false, error: 'last_name_required' }
+  if (!/^09\d{9}$/.test(phone)) return { ok: false, error: 'phone_invalid' }
+  if (!Array.isArray(data.items) || data.items.length === 0) return { ok: false, error: 'cart_empty' }
+  if (data.status && !ORDER_STATUSES.includes(data.status)) return { ok: false, error: 'invalid_status' }
+  return { ok: true }
+}
+
+function validateProductPayload(data) {
+  if (!data || typeof data !== 'object') return { ok: false, error: 'invalid_data' }
+  const name = String(data.name || '').trim()
+  const price = Math.round(Number(data.price) || 0)
+  if (!name) return { ok: false, error: 'product_name_required' }
+  if (price <= 0) return { ok: false, error: 'price_required' }
+  return { ok: true }
+}
+
+function httpRequest(urlString, options, body) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlString)
+    const lib = u.protocol === 'https:' ? https : http
+    const req = lib.request({
+      protocol: u.protocol,
+      hostname: u.hostname,
+      port: u.port || (u.protocol === 'https:' ? 443 : 80),
+      path: u.pathname + u.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      timeout: options.timeout || 10000
+    }, res => {
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => {
+        resolve({ status: res.statusCode || 0, data, headers: res.headers })
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('SMS timeout'))
+    })
+    if (body) req.write(body)
+    req.end()
+  })
+}
+
+async function sendSmsViaProvider(settings, toNumbers, messageContent) {
+  const apiType = settings.apiType || 'payamak-vip'
+  if (apiType === 'niazpardaz') {
+    const params = new URLSearchParams({
+      username: settings.username,
+      password: settings.password,
+      from: settings.fromNumber,
+      to: toNumbers,
+      text: messageContent
+    })
+    const apiUrl = `https://panel.niazpardaz-sms.com/SMSInOutBox/SendSms?${params.toString()}`
+    const response = await httpRequest(apiUrl, { method: 'GET', timeout: 10000 })
+    const responseText = String(response.data || '')
+    if (responseText && !responseText.toLowerCase().includes('error') && !responseText.includes('خطا')) {
+      return { ok: true, response: responseText }
+    }
+    return { ok: false, error: responseText || 'sms_failed' }
+  }
+
+  const apiUrl = 'http://www.payamak.vip/api/v1/RestWebApi/SendBatchSms'
+  const payload = JSON.stringify({
+    userName: settings.username,
+    password: settings.password,
+    fromNumber: settings.fromNumber,
+    toNumbers,
+    messageContent,
+    isFlash: false,
+    sendDelay: 0
+  })
+  const response = await httpRequest(apiUrl, {
+    method: 'POST',
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  }, payload)
+
+  let apiResult
+  try {
+    apiResult = JSON.parse(response.data)
+  } catch {
+    apiResult = response.data
+  }
+
+  if (apiResult && apiResult.Result !== undefined) {
+    if (apiResult.Result === 0) return { ok: true, response: apiResult }
+    return { ok: false, error: apiResult.ErrorMessage || `API Error Code: ${apiResult.Result}` }
+  }
+  return { ok: true, response: apiResult }
+}
+
+function isPublicPath(pathname) {
+  if (pathname === '/login.html' || pathname === '/favicon.ico') return true
+  if (pathname.startsWith('/assets/')) return true
+  if (pathname === '/js/i18n.js' || pathname === '/js/common.js' || pathname === '/js/login.page.js') return true
+  if (pathname === '/api/login' || pathname === '/api/me') return true
+  return false
+}
+
+function contentTypeFor(ext) {
+  return {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon'
+  }[ext] || 'application/octet-stream'
+}
+
+function serveStatic(req, res, pathname) {
+  let filePath = pathname === '/' ? 'index.html' : pathname.slice(1)
+  filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, '')
+  const absolute = path.join(__dirname, filePath)
+  if (!absolute.startsWith(__dirname)) {
+    sendError(res, 'Forbidden', 403)
+    return
+  }
+  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
+    sendError(res, 'Not Found', 404)
+    return
+  }
+  const content = fs.readFileSync(absolute)
+  res.writeHead(200, { 'Content-Type': contentTypeFor(path.extname(absolute)) })
+  res.end(content)
+}
+
+ensureDir(DATA_DIR)
+ensureJsonArray(PRODUCTS_FILE)
+ensureJsonArray(ORDERS_FILE)
+ensureAuth()
+ensureSmsSettings()
+runStartupBackup()
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const parsed = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    const method = req.method || 'GET'
+    const pathname = parsed.pathname
+
+    const reqOrigin = req.headers.origin || ''
+    const allowed = new Set([
+      `http://localhost:${PORT}`,
+      `http://127.0.0.1:${PORT}`
+    ])
+    if (allowed.has(reqOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin)
+      res.setHeader('Access-Control-Allow-Credentials', 'true')
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+    if (method === 'OPTIONS') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
+
+    const sessionInfo = getSession(req)
+    const authed = Boolean(sessionInfo)
+
+    if (pathname.startsWith('/api/')) {
+      if (pathname === '/api/me' && method === 'GET') {
+        if (!authed) return sendJson(res, { authenticated: false })
+        const auth = ensureAuth()
+        return sendJson(res, {
+          authenticated: true,
+          username: sessionInfo.session.username,
+          mustChangePassword: Boolean(auth.mustChangePassword)
+        })
+      }
+
+      if (pathname === '/api/login' && method === 'POST') {
+        const body = await readJsonBody(req)
+        const username = String(body.username || '').trim()
+        const password = String(body.password || '')
+        const auth = ensureAuth()
+        if (username !== auth.username || !verifyPassword(password, auth.salt, auth.hash)) {
+          return sendError(res, 'invalid_credentials', 401)
+        }
+        const token = createSession(username)
+        setSessionCookie(res, token)
+        return sendJson(res, {
+          success: true,
+          username,
+          mustChangePassword: Boolean(auth.mustChangePassword)
+        })
+      }
+
+      if (pathname === '/api/logout' && method === 'POST') {
+        if (sessionInfo) sessions.delete(sessionInfo.token)
+        clearSessionCookie(res)
+        return sendJson(res, { success: true })
+      }
+
+      if (!authed) return sendError(res, 'unauthorized', 401)
+
+      if (pathname === '/api/change-password' && method === 'POST') {
+        const body = await readJsonBody(req)
+        const currentPassword = String(body.currentPassword || '')
+        const newPassword = String(body.newPassword || '')
+        if (newPassword.length < 4) return sendError(res, 'password_too_short')
+        const auth = ensureAuth()
+        if (!verifyPassword(currentPassword, auth.salt, auth.hash)) {
+          return sendError(res, 'wrong_password', 400)
+        }
+        const { salt, hash } = hashPassword(newPassword)
+        const next = {
+          ...auth,
+          salt,
+          hash,
+          mustChangePassword: false,
+          updatedAt: nowIso()
+        }
+        await writeJsonLocked(AUTH_FILE, next)
+        return sendJson(res, { success: true })
+      }
+
+      if (pathname === '/api/sms-settings' && method === 'GET') {
+        const settings = readJson(SMS_FILE, {})
+        return sendJson(res, {
+          apiType: settings.apiType || 'payamak-vip',
+          username: settings.username || '',
+          passwordSet: Boolean(settings.password),
+          fromNumber: settings.fromNumber || '',
+          messageTemplate: settings.messageTemplate || '',
+          enabled: Boolean(settings.enabled)
+        })
+      }
+
+      if (pathname === '/api/sms-settings' && method === 'POST') {
+        const body = await readJsonBody(req)
+        const current = readJson(SMS_FILE, {})
+        const next = {
+          apiType: body.apiType || current.apiType || 'payamak-vip',
+          username: body.username !== undefined ? String(body.username) : (current.username || ''),
+          password: body.password !== undefined && body.password !== ''
+            ? String(body.password)
+            : (current.password || ''),
+          fromNumber: body.fromNumber !== undefined ? String(body.fromNumber) : (current.fromNumber || ''),
+          messageTemplate: body.messageTemplate !== undefined
+            ? String(body.messageTemplate)
+            : (current.messageTemplate || ''),
+          enabled: body.enabled !== undefined ? Boolean(body.enabled) : Boolean(current.enabled),
+          updatedAt: nowIso()
+        }
+        await writeJsonLocked(SMS_FILE, next)
+        return sendJson(res, { success: true })
+      }
+
+      if (pathname === '/api/products' && method === 'GET') {
+        const products = await readJsonLocked(PRODUCTS_FILE, [])
+        return sendJson(res, Array.isArray(products) ? products : [])
+      }
+
+      if (pathname === '/api/products' && method === 'POST') {
+        const body = await readJsonBody(req)
+        if (Array.isArray(body)) {
+          await writeJsonLocked(PRODUCTS_FILE, body)
+          return sendJson(res, { success: true, replaced: true })
+        }
+        const check = validateProductPayload(body)
+        if (!check.ok) return sendError(res, check.error)
+        const product = {
+          id: uid('prod'),
+          name: String(body.name).trim(),
+          price: Math.round(Number(body.price)),
+          description: String(body.description || '').trim(),
+          imageDataUrl: String(body.imageDataUrl || ''),
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        }
+        const products = await withFileLock(PRODUCTS_FILE, async () => {
+          const list = readJson(PRODUCTS_FILE, [])
+          list.push(product)
+          atomicWriteSync(PRODUCTS_FILE, JSON.stringify(list, null, 2))
+          return product
+        })
+        return sendJson(res, products, 201)
+      }
+
+      const productMatch = pathname.match(/^\/api\/products\/([^/]+)$/)
+      if (productMatch && method === 'PUT') {
+        const id = decodeURIComponent(productMatch[1])
+        const body = await readJsonBody(req)
+        const check = validateProductPayload(body)
+        if (!check.ok) return sendError(res, check.error)
+        const updated = await withFileLock(PRODUCTS_FILE, async () => {
+          const list = readJson(PRODUCTS_FILE, [])
+          const idx = list.findIndex(p => p.id === id)
+          if (idx === -1) return null
+          const next = {
+            ...list[idx],
+            name: String(body.name).trim(),
+            price: Math.round(Number(body.price)),
+            description: String(body.description || '').trim(),
+            imageDataUrl: body.imageDataUrl !== undefined
+              ? String(body.imageDataUrl || '')
+              : (list[idx].imageDataUrl || ''),
+            updatedAt: nowIso()
+          }
+          list[idx] = next
+          atomicWriteSync(PRODUCTS_FILE, JSON.stringify(list, null, 2))
+          return next
+        })
+        if (!updated) return sendError(res, 'product_not_found', 404)
+        return sendJson(res, updated)
+      }
+
+      if (productMatch && method === 'DELETE') {
+        const id = decodeURIComponent(productMatch[1])
+        const ok = await withFileLock(PRODUCTS_FILE, async () => {
+          const list = readJson(PRODUCTS_FILE, [])
+          const next = list.filter(p => p.id !== id)
+          if (next.length === list.length) return false
+          atomicWriteSync(PRODUCTS_FILE, JSON.stringify(next, null, 2))
+          return true
+        })
+        if (!ok) return sendError(res, 'product_not_found', 404)
+        return sendJson(res, { success: true })
+      }
+
+      if (pathname === '/api/orders' && method === 'GET') {
+        const orders = await readJsonLocked(ORDERS_FILE, [])
+        const normalized = (Array.isArray(orders) ? orders : []).map(normalizeOrder)
+        return sendJson(res, normalized)
+      }
+
+      if (pathname === '/api/orders' && method === 'POST') {
+        const body = await readJsonBody(req)
+        if (Array.isArray(body)) {
+          const normalized = body.map(normalizeOrder)
+          await writeJsonLocked(ORDERS_FILE, normalized)
+          return sendJson(res, { success: true, replaced: true })
+        }
+        const check = validateOrderPayload(body)
+        if (!check.ok) return sendError(res, check.error)
+        const order = normalizeOrder({
+          ...body,
+          id: body.id || uid('ord'),
+          createdAt: body.createdAt || nowIso(),
+          updatedAt: nowIso(),
+          payments: Array.isArray(body.payments) ? body.payments : (
+            (Number(body.deposit) || 0) > 0
+              ? [{ amount: Math.round(Number(body.deposit)), at: nowIso(), note: 'Initial deposit' }]
+              : []
+          )
+        })
+        await withFileLock(ORDERS_FILE, async () => {
+          const list = readJson(ORDERS_FILE, [])
+          list.unshift(order)
+          atomicWriteSync(ORDERS_FILE, JSON.stringify(list, null, 2))
+        })
+        return sendJson(res, order, 201)
+      }
+
+      const orderPaymentMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payments$/)
+      if (orderPaymentMatch && method === 'POST') {
+        const id = decodeURIComponent(orderPaymentMatch[1])
+        const body = await readJsonBody(req)
+        const amount = Math.round(Number(body.amount) || 0)
+        if (amount <= 0) return sendError(res, 'invalid_payment')
+        const updated = await withFileLock(ORDERS_FILE, async () => {
+          const list = readJson(ORDERS_FILE, [])
+          const idx = list.findIndex(o => o.id === id)
+          if (idx === -1) return null
+          const order = normalizeOrder(list[idx])
+          if (amount > order.remainingAmount) return { error: 'payment_exceeds_remaining' }
+          order.deposit += amount
+          order.remainingAmount = Math.max(0, order.totalAmount - order.deposit)
+          order.payments = Array.isArray(order.payments) ? order.payments : []
+          order.payments.push({
+            amount,
+            at: nowIso(),
+            note: String(body.note || '').trim()
+          })
+          order.updatedAt = nowIso()
+          list[idx] = order
+          atomicWriteSync(ORDERS_FILE, JSON.stringify(list, null, 2))
+          return order
+        })
+        if (!updated) return sendError(res, 'order_not_found', 404)
+        if (updated.error) return sendError(res, updated.error)
+        return sendJson(res, updated)
+      }
+
+      const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/)
+      if (orderMatch && method === 'PUT') {
+        const id = decodeURIComponent(orderMatch[1])
+        const body = await readJsonBody(req)
+        const check = validateOrderPayload({ ...body, id }, { requireId: true })
+        if (!check.ok) return sendError(res, check.error)
+        const updated = await withFileLock(ORDERS_FILE, async () => {
+          const list = readJson(ORDERS_FILE, [])
+          const idx = list.findIndex(o => o.id === id)
+          if (idx === -1) return null
+          const prev = normalizeOrder(list[idx])
+          const next = normalizeOrder({
+            ...prev,
+            ...body,
+            id,
+            payments: Array.isArray(body.payments) ? body.payments : prev.payments,
+            createdAt: prev.createdAt,
+            updatedAt: nowIso()
+          })
+          list[idx] = next
+          atomicWriteSync(ORDERS_FILE, JSON.stringify(list, null, 2))
+          return next
+        })
+        if (!updated) return sendError(res, 'order_not_found', 404)
+        return sendJson(res, updated)
+      }
+
+      if (orderMatch && method === 'PATCH') {
+        const id = decodeURIComponent(orderMatch[1])
+        const body = await readJsonBody(req)
+        const updated = await withFileLock(ORDERS_FILE, async () => {
+          const list = readJson(ORDERS_FILE, [])
+          const idx = list.findIndex(o => o.id === id)
+          if (idx === -1) return null
+          const prev = normalizeOrder(list[idx])
+          if (body.status && !ORDER_STATUSES.includes(body.status)) {
+            return { error: 'invalid_status' }
+          }
+          const next = normalizeOrder({
+            ...prev,
+            ...body,
+            id,
+            updatedAt: nowIso()
+          })
+          list[idx] = next
+          atomicWriteSync(ORDERS_FILE, JSON.stringify(list, null, 2))
+          return next
+        })
+        if (!updated) return sendError(res, 'order_not_found', 404)
+        if (updated.error) return sendError(res, updated.error)
+        return sendJson(res, updated)
+      }
+
+      if (orderMatch && method === 'DELETE') {
+        const id = decodeURIComponent(orderMatch[1])
+        const ok = await withFileLock(ORDERS_FILE, async () => {
+          const list = readJson(ORDERS_FILE, [])
+          const next = list.filter(o => o.id !== id)
+          if (next.length === list.length) return false
+          atomicWriteSync(ORDERS_FILE, JSON.stringify(next, null, 2))
+          return true
+        })
+        if (!ok) return sendError(res, 'order_not_found', 404)
+        return sendJson(res, { success: true })
+      }
+
+      if (pathname === '/api/backup' && method === 'POST') {
+        runStartupBackup()
+        return sendJson(res, { success: true })
+      }
+
+      if (pathname === '/api/send-sms' && method === 'POST') {
+        const body = await readJsonBody(req)
+        const settings = readJson(SMS_FILE, {})
+        const toNumbers = String(body.toNumbers || '').trim()
+        let messageContent = String(body.messageContent || '').trim()
+
+        if (!settings.enabled) return sendError(res, 'sms_disabled')
+        if (!settings.username || !settings.password || !settings.fromNumber) {
+          return sendError(res, 'sms_incomplete')
+        }
+        if (!toNumbers) return sendError(res, 'sms_recipient_required')
+
+        if (!messageContent && body.order) {
+          const tpl = settings.messageTemplate || ''
+          const order = body.order
+          messageContent = tpl
+            .replace(/{lastName}/g, order.customer?.lastName || '')
+            .replace(/{totalAmount}/g, String(order.totalAmount || 0))
+            .replace(/{deposit}/g, String(order.deposit || 0))
+            .replace(/{remainingAmount}/g, String(order.remainingAmount || 0))
+        }
+        if (!messageContent) return sendError(res, 'sms_empty')
+
+        try {
+          const result = await sendSmsViaProvider(settings, toNumbers, messageContent)
+          if (!result.ok) return sendError(res, result.error || 'sms_failed', 400)
+          return sendJson(res, { success: true, response: result.response })
+        } catch (e) {
+          console.error('[SMS]', e.message)
+          return sendError(res, e.message || 'sms_failed', 500)
+        }
+      }
+
+      return sendError(res, 'Not Found', 404)
+    }
+
+    if (!authed && !isPublicPath(pathname)) {
+      if (pathname === '/' || pathname.endsWith('.html')) {
+        res.writeHead(302, { Location: '/login.html' })
+        res.end()
         return
       }
-      body += chunk.toString()
-    })
-    
-    req.on('end', () => {
-      try {
-        if (!body) {
-          resolve(null)
-          return
-        }
-        const parsed = JSON.parse(body)
-        resolve(parsed)
-      } catch (e) {
-        reject(new Error('Invalid JSON'))
-      }
-    })
-    
-    req.on('error', err => {
-      reject(err)
-    })
-  })
-}
-
-// Security headers
-function setSecurityHeaders(res) {
-  res.setHeader('X-Content-Type-Options', 'nosniff')
-  res.setHeader('X-Frame-Options', 'DENY')
-  res.setHeader('X-XSS-Protection', '1; mode=block')
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
-  // Don't set CSP too strict for now to avoid breaking the app
-  // res.setHeader('Content-Security-Policy', "default-src 'self'")
-}
-
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true)
-  const method = req.method
-  const pathname = parsedUrl.pathname
-
-  // Debug log - فقط برای API routes
-  if (pathname.startsWith('/api/')) {
-    console.log(`[${method}] ${pathname}`)
-  }
-
-  // Set security headers for all responses
-  setSecurityHeaders(res)
-  
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  if (method === 'OPTIONS') {
-    res.writeHead(200)
-    res.end()
-    return
-  }
-
-  // Authentication endpoints (public)
-  if (pathname === '/api/auth/login' && method === 'POST') {
-    readRequestBody(req, 1024).then(async (data) => {
-      try {
-        if (!data || typeof data !== 'object') {
-          return sendError(res, 'Invalid request', 400)
-        }
-        
-        const { username, password } = data
-        const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown'
-        
-        // Validate input
-        const usernameValidation = validateUsername(username)
-        if (!usernameValidation.valid) {
-          return sendError(res, usernameValidation.error, 400)
-        }
-        
-        const passwordValidation = validatePassword(password)
-        if (!passwordValidation.valid) {
-          return sendError(res, passwordValidation.error, 400)
-        }
-        
-        const sanitizedUsername = usernameValidation.value
-        const sanitizedPassword = passwordValidation.value
-        
-        // Rate limiting check
-        const attempts = loginAttempts.get(clientIp) || { count: 0, lockoutUntil: 0 }
-        const now = Date.now()
-        
-        // Auto-clear old lockouts (older than lockout time)
-        if (attempts.lockoutUntil > 0 && attempts.lockoutUntil < now) {
-          loginAttempts.delete(clientIp)
-        }
-        
-        if (attempts.lockoutUntil > now) {
-          const remainingMinutes = Math.ceil((attempts.lockoutUntil - now) / 60000)
-          console.log('[AUTH] Rate limit active for IP:', clientIp, 'remaining:', remainingMinutes, 'minutes')
-          return sendError(res, `Too many login attempts. Please try again in ${remainingMinutes} minute(s).`, 429)
-        }
-        
-        const auth = readAuth()
-        if (!auth) {
-          console.log('[AUTH] Auth file corrupted, rejecting login')
-          return sendError(res, 'Authentication service unavailable', 503)
-        }
-        
-        // Check username match
-        if (sanitizedUsername !== auth.username) {
-          // Increment failed attempts
-          attempts.count++
-          if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
-            attempts.lockoutUntil = now + LOGIN_LOCKOUT_TIME
-            attempts.count = 0
-          }
-          loginAttempts.set(clientIp, attempts)
-          console.log('[AUTH] Login failed: username mismatch')
-          return sendError(res, 'Invalid username or password', 401)
-        }
-        
-        // Check password with bcrypt (or migrate from legacy)
-        let passwordMatch = false
-        if (auth.passwordHash.startsWith('$2')) {
-          // Bcrypt hash
-          passwordMatch = await comparePassword(sanitizedPassword, auth.passwordHash)
-        } else {
-          // Legacy SHA-256 hash - try to migrate
-          const migratedHash = await migrateLegacyPassword(auth.passwordHash, sanitizedPassword)
-          if (migratedHash) {
-            // Password matches, update to bcrypt
-            auth.passwordHash = migratedHash
-            writeAuth(auth)
-            passwordMatch = true
-            console.log('[AUTH] Password migrated from SHA-256 to bcrypt')
-          } else {
-            // Check legacy hash directly
-            const sha256Hash = crypto.createHash('sha256').update(sanitizedPassword).digest('hex')
-            passwordMatch = sha256Hash === auth.passwordHash
-          }
-        }
-        
-        if (passwordMatch) {
-          // Reset attempts on successful login
-          loginAttempts.delete(clientIp)
-          
-          const token = createSession(sanitizedUsername)
-          console.log('[AUTH] Login successful, token created')
-          sendJson(res, { success: true, token, username: sanitizedUsername })
-        } else {
-          // Increment failed attempts
-          attempts.count++
-          if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
-            attempts.lockoutUntil = now + LOGIN_LOCKOUT_TIME
-            attempts.count = 0
-          }
-          loginAttempts.set(clientIp, attempts)
-          console.log('[AUTH] Login failed: password mismatch')
-          sendError(res, 'Invalid username or password', 401)
-        }
-      } catch (e) {
-        console.error('[AUTH] Login error:', e.message)
-        sendError(res, 'Invalid request', 400)
-      }
-    }).catch(err => {
-      if (err.message === 'Request body too large') {
-        sendError(res, 'Request too large', 413)
-      } else {
-        console.error('[AUTH] Login request error:', err.message)
-        sendError(res, 'Invalid request', 400)
-      }
-    })
-    return
-  }
-
-  if (pathname === '/api/auth/change-username' && method === 'POST') {
-    requireAuth(req, res, () => {
-      readRequestBody(req, 1024).then(async (data) => {
-        try {
-          if (!data || typeof data !== 'object') {
-            return sendError(res, 'Invalid request', 400)
-          }
-          
-          const { newUsername, password } = data
-          
-          // Validate new username
-          const usernameValidation = validateUsername(newUsername)
-          if (!usernameValidation.valid) {
-            return sendError(res, usernameValidation.error, 400)
-          }
-          
-          // Validate password
-          const passwordValidation = validatePassword(password)
-          if (!passwordValidation.valid) {
-            return sendError(res, passwordValidation.error, 400)
-          }
-          
-          const sanitizedUsername = usernameValidation.value
-          const sanitizedPassword = passwordValidation.value
-          
-          const auth = readAuth()
-          if (!auth) {
-            return sendError(res, 'Authentication service unavailable', 503)
-          }
-          
-          // Verify current password
-          let passwordMatch = false
-          if (auth.passwordHash.startsWith('$2')) {
-            passwordMatch = await comparePassword(sanitizedPassword, auth.passwordHash)
-          } else {
-            // Legacy SHA-256
-            const sha256Hash = crypto.createHash('sha256').update(sanitizedPassword).digest('hex')
-            passwordMatch = sha256Hash === auth.passwordHash
-          }
-          
-          if (!passwordMatch) {
-            return sendError(res, 'Password is incorrect', 401)
-          }
-          
-          auth.username = sanitizedUsername
-          writeAuth(auth)
-          
-          console.log('[AUTH] Username changed to:', sanitizedUsername)
-          sendJson(res, { success: true, username: sanitizedUsername })
-        } catch (e) {
-          console.error('[AUTH] Change username error:', e.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      }).catch(err => {
-        if (err.message === 'Request body too large') {
-          sendError(res, 'Request too large', 413)
-        } else {
-          console.error('[AUTH] Change username request error:', err.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      })
-    })
-    return
-  }
-
-  if (pathname === '/api/auth/change-password' && method === 'POST') {
-    requireAuth(req, res, () => {
-      readRequestBody(req, 1024).then(async (data) => {
-        try {
-          if (!data || typeof data !== 'object') {
-            return sendError(res, 'Invalid request', 400)
-          }
-          
-          const { currentPassword, newPassword } = data
-          
-          // Validate current password
-          const currentPasswordValidation = validatePassword(currentPassword)
-          if (!currentPasswordValidation.valid) {
-            return sendError(res, currentPasswordValidation.error, 400)
-          }
-          
-          // Validate new password
-          const newPasswordValidation = validatePassword(newPassword)
-          if (!newPasswordValidation.valid) {
-            return sendError(res, newPasswordValidation.error, 400)
-          }
-          
-          // Check if new password is different
-          if (currentPassword === newPassword) {
-            return sendError(res, 'New password must be different from current password', 400)
-          }
-          
-          const sanitizedCurrentPassword = currentPasswordValidation.value
-          const sanitizedNewPassword = newPasswordValidation.value
-          
-          const auth = readAuth()
-          if (!auth) {
-            return sendError(res, 'Authentication service unavailable', 503)
-          }
-          
-          // Verify current password
-          let passwordMatch = false
-          if (auth.passwordHash.startsWith('$2')) {
-            passwordMatch = await comparePassword(sanitizedCurrentPassword, auth.passwordHash)
-          } else {
-            // Legacy SHA-256
-            const sha256Hash = crypto.createHash('sha256').update(sanitizedCurrentPassword).digest('hex')
-            passwordMatch = sha256Hash === auth.passwordHash
-          }
-          
-          if (!passwordMatch) {
-            return sendError(res, 'Current password is incorrect', 401)
-          }
-          
-          // Hash new password with bcrypt
-          auth.passwordHash = await hashPassword(sanitizedNewPassword)
-          writeAuth(auth)
-          
-          console.log('[AUTH] Password changed')
-          sendJson(res, { success: true })
-        } catch (e) {
-          console.error('[AUTH] Change password error:', e.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      }).catch(err => {
-        if (err.message === 'Request body too large') {
-          sendError(res, 'Request too large', 413)
-        } else {
-          console.error('[AUTH] Change password request error:', err.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      })
-    })
-    return
-  }
-
-  if (pathname === '/api/auth/get-username' && method === 'GET') {
-    requireAuth(req, res, () => {
-      const auth = readAuth()
-      sendJson(res, { success: true, username: auth.username })
-    })
-    return
-  }
-
-  if (pathname === '/api/auth/verify' && method === 'GET') {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[AUTH] Verify: No auth header')
-      return sendError(res, 'Unauthorized', 401)
-    }
-    
-    const token = authHeader.substring(7)
-    console.log('[AUTH] Verify: Token received, length:', token.length)
-    
-    if (isValidSession(token)) {
-      const sessions = readSessions()
-      const session = sessions[token]
-      console.log('[AUTH] Verify: Session valid for user:', session.username)
-      sendJson(res, { valid: true, username: session.username })
-    } else {
-      console.log('[AUTH] Verify: Session invalid or expired')
-      sendError(res, 'Invalid or expired session', 401)
-    }
-    return
-  }
-
-  // Reset rate limiting endpoint removed for security
-
-  // Protected API endpoints
-  if (pathname === '/api/products' && method === 'GET') {
-    requireAuth(req, res, () => {
-      try {
-        const products = readJsonFile(PRODUCTS_FILE)
-        sendJson(res, products)
-      } catch (e) {
-        console.error('[API] Error reading products:', e.message)
-        sendError(res, 'Failed to read products', 500)
-      }
-    })
-    return
-  }
-
-  if (pathname === '/api/products' && method === 'POST') {
-    requireAuth(req, res, () => {
-      readRequestBody(req).then((data) => {
-        try {
-          const validation = validateJsonArray(data, 10000)
-          if (!validation.valid) {
-            return sendError(res, validation.error, 400)
-          }
-          
-          // Sanitize product data
-          const sanitizedProducts = validation.value.map(product => {
-            if (typeof product !== 'object' || product === null) {
-              return null
-            }
-            return {
-              id: sanitizeString(product.id || '', 100),
-              name: sanitizeString(product.name || '', 200),
-              price: typeof product.price === 'number' ? Math.max(0, Math.min(product.price, 999999999)) : 0,
-              description: sanitizeString(product.description || '', 1000),
-              imageDataUrl: sanitizeString(product.imageDataUrl || '', 1000000), // Base64 images can be large
-              createdAt: sanitizeString(product.createdAt || '', 50),
-              updatedAt: sanitizeString(product.updatedAt || '', 50)
-            }
-          }).filter(p => p !== null && p.id && p.name)
-          
-          writeJsonFile(PRODUCTS_FILE, sanitizedProducts)
-          sendJson(res, { success: true })
-        } catch (e) {
-          console.error('[API] Error saving products:', e.message)
-          sendError(res, 'Invalid data format', 400)
-        }
-      }).catch(err => {
-        if (err.message === 'Request body too large') {
-          sendError(res, 'Request too large', 413)
-        } else {
-          console.error('[API] Products save error:', err.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      })
-    })
-    return
-  }
-
-  if (pathname === '/api/orders' && method === 'GET') {
-    requireAuth(req, res, () => {
-      try {
-        const orders = readJsonFile(ORDERS_FILE)
-        sendJson(res, orders)
-      } catch (e) {
-        console.error('[API] Error reading orders:', e.message)
-        sendError(res, 'Failed to read orders', 500)
-      }
-    })
-    return
-  }
-
-  if (pathname === '/api/orders' && method === 'POST') {
-    requireAuth(req, res, () => {
-      readRequestBody(req).then((data) => {
-        try {
-          const validation = validateJsonArray(data, 10000)
-          if (!validation.valid) {
-            return sendError(res, validation.error, 400)
-          }
-          
-          // Sanitize order data
-          const sanitizedOrders = validation.value.map(order => {
-            if (typeof order !== 'object' || order === null) {
-              return null
-            }
-            return {
-              id: sanitizeString(order.id || '', 100),
-              customer: order.customer && typeof order.customer === 'object' ? {
-                lastName: sanitizeString(order.customer.lastName || '', 100),
-                phone: sanitizeString(order.customer.phone || '', 20),
-                createdAt: sanitizeString(order.customer.createdAt || '', 50)
-              } : null,
-              items: Array.isArray(order.items) ? order.items.slice(0, 100).map(item => ({
-                id: sanitizeString(item.id || '', 100),
-                productId: sanitizeString(item.productId || '', 100),
-                name: sanitizeString(item.name || '', 200),
-                quantity: typeof item.quantity === 'number' ? Math.max(1, Math.min(item.quantity, 9999)) : 1,
-                unitPrice: typeof item.unitPrice === 'number' ? Math.max(0, Math.min(item.unitPrice, 999999999)) : 0,
-                totalPrice: typeof item.totalPrice === 'number' ? Math.max(0, Math.min(item.totalPrice, 999999999)) : 0,
-                description: sanitizeString(item.description || '', 500)
-              })) : [],
-              totalAmount: typeof order.totalAmount === 'number' ? Math.max(0, Math.min(order.totalAmount, 999999999)) : 0,
-              deposit: typeof order.deposit === 'number' ? Math.max(0, Math.min(order.deposit, 999999999)) : 0,
-              remainingAmount: typeof order.remainingAmount === 'number' ? Math.max(0, Math.min(order.remainingAmount, 999999999)) : 0,
-              description: sanitizeString(order.description || '', 1000),
-              createdAt: sanitizeString(order.createdAt || '', 50),
-              updatedAt: sanitizeString(order.updatedAt || '', 50),
-              history: Array.isArray(order.history) ? order.history.slice(0, 100).map(h => ({
-                ts: sanitizeString(h.ts || '', 50),
-                action: sanitizeString(h.action || '', 50),
-                payload: h.payload
-              })) : []
-            }
-          }).filter(o => o !== null && o.id)
-          
-          writeJsonFile(ORDERS_FILE, sanitizedOrders)
-          sendJson(res, { success: true })
-        } catch (e) {
-          console.error('[API] Error saving orders:', e.message)
-          sendError(res, 'Invalid data format', 400)
-        }
-      }).catch(err => {
-        if (err.message === 'Request body too large') {
-          sendError(res, 'Request too large', 413)
-        } else {
-          console.error('[API] Orders save error:', err.message)
-          sendError(res, 'Invalid request', 400)
-        }
-      })
-    })
-    return
-  }
-
-  if (pathname === '/api/send-sms' && method === 'POST') {
-    console.log('[SMS] SMS endpoint called')
-    let body = ''
-    req.on('data', chunk => {
-      body += chunk.toString()
-    })
-    req.on('end', async () => {
-      try {
-        console.log('[SMS] Request body received, length:', body.length)
-        const data = JSON.parse(body)
-        console.log('[SMS] Parsed data - userName:', data.userName ? '***' : 'missing', 
-                    'fromNumber:', data.fromNumber, 'toNumbers:', data.toNumbers)
-        
-        const { apiType, userName, password, fromNumber, toNumbers, messageContent } = data
-        
-        if (!userName || !password || !fromNumber || !toNumbers || !messageContent) {
-          console.log('[SMS] Missing required fields')
-          return sendError(res, 'Missing required fields')
-        }
-        
-        const selectedApiType = apiType || 'payamak-vip'
-        console.log('[SMS] Using API type:', selectedApiType)
-        
-        try {
-          let response
-          
-          if (selectedApiType === 'niazpardaz') {
-            // API Niazpardaz - GET با query parameters
-            const baseUrl = 'https://panel.niazpardaz-sms.com/SMSInOutBox/SendSms'
-            const params = new URLSearchParams({
-              username: userName,
-              password: password,
-              from: fromNumber,
-              to: toNumbers,
-              text: messageContent
-            })
-            const apiUrl = `${baseUrl}?${params.toString()}`
-            
-            console.log('[SMS] Calling Niazpardaz API:', baseUrl)
-            response = await axios.get(apiUrl, {
-              timeout: 10000,
-              headers: {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-              }
-            })
-            
-            console.log('[SMS] API Response Status:', response.status)
-            console.log('[SMS] API Response Data:', response.data)
-            
-            // Niazpardaz معمولاً متن ساده برمی‌گرداند
-            const responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
-            
-            // بررسی پاسخ (معمولاً عدد برمی‌گرداند که اگر مثبت باشد موفق است)
-            if (responseText && !responseText.toLowerCase().includes('error') && !responseText.toLowerCase().includes('خطا')) {
-              sendJson(res, { success: true, response: responseText })
-            } else {
-              sendError(res, responseText || 'Failed to send SMS', 400)
-            }
-          } else {
-            // API Payamak.vip - POST با JSON
-            const baseAddress = 'http://www.payamak.vip/api/v1/RestWebApi/'
-            const apiUrl = baseAddress + 'SendBatchSms'
-            
-            const smsData = {
-              userName,
-              password,
-              fromNumber,
-              toNumbers,
-              messageContent,
-              isFlash: false,
-              sendDelay: 0
-            }
-            
-            console.log('[SMS] Calling Payamak.vip API:', apiUrl)
-            response = await axios.post(apiUrl, smsData, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            })
-            
-            console.log('[SMS] API Response Status:', response.status)
-            console.log('[SMS] API Response Data:', JSON.stringify(response.data))
-            
-            // بررسی نتیجه API
-            const apiResult = response.data
-            if (apiResult && apiResult.Result !== undefined) {
-              // Result: 0 = موفق, غیر 0 = خطا
-              if (apiResult.Result === 0) {
-                sendJson(res, { success: true, response: apiResult })
-              } else {
-                const errorMessage = apiResult.ErrorMessage || `API Error Code: ${apiResult.Result}`
-                console.error('[SMS] API returned error:', errorMessage)
-                sendError(res, errorMessage, 400)
-              }
-            } else {
-              // اگر ساختار پاسخ غیرمنتظره بود
-              sendJson(res, { success: true, response: apiResult })
-            }
-          }
-        } catch (error) {
-          console.error('[SMS] API Error:', error.message)
-          if (error.response) {
-            console.error('[SMS] Response Status:', error.response.status)
-            console.error('[SMS] Response Data:', JSON.stringify(error.response.data))
-          }
-          sendError(res, error.response?.data?.message || error.message || 'Failed to send SMS', 500)
-        }
-      } catch (e) {
-        console.error('[SMS] Parse Error:', e.message)
-        sendError(res, 'Invalid JSON: ' + e.message)
-      }
-    })
-    return
-  }
-
-  // Handle favicon.ico requests (return 204 No Content)
-  if (pathname === '/favicon.ico') {
-    res.writeHead(204, { 'Content-Type': 'image/x-icon' })
-    res.end()
-    return
-  }
-
-  // Serve static files (but not API routes)
-  if (pathname.startsWith('/') && !pathname.startsWith('/api/')) {
-    let filePath = pathname === '/' ? 'index.html' : pathname.slice(1)
-    filePath = path.join(__dirname, filePath)
-
-    if (!filePath.startsWith(__dirname)) {
-      sendError(res, 'Forbidden', 403)
-      return
     }
 
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-      const ext = path.extname(filePath)
-      const contentType = {
-        '.html': 'text/html',
-        '.css': 'text/css',
-        '.js': 'application/javascript',
-        '.json': 'application/json',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg'
-      }[ext] || 'application/octet-stream'
-
-      const content = fs.readFileSync(filePath)
-      res.writeHead(200, { 'Content-Type': contentType })
-      res.end(content)
-      return
-    }
+    serveStatic(req, res, pathname)
+  } catch (e) {
+    console.error('[SERVER]', e)
+    if (!res.headersSent) sendError(res, e.message || 'Server error', 500)
   }
-
-  sendError(res, 'Not Found', 404)
 })
 
-// Initialize auth file on startup
-initAuthFile().then(() => {
-  server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`)
-    console.log(`Data directory: ${DATA_DIR}`)
-    console.log('[SECURITY] Security features enabled:')
-    console.log('  - bcrypt password hashing')
-    console.log('  - Input validation and sanitization')
-    console.log('  - Rate limiting')
-    console.log('  - Security headers')
-    console.log('  - Request size limits')
-  })
-}).catch(err => {
-  console.error('[ERROR] Failed to initialize auth file:', err.message)
-  process.exit(1)
+server.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`)
+  console.log(`Data directory: ${DATA_DIR}`)
 })
-

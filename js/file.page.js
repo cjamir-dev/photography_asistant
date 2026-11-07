@@ -1,32 +1,29 @@
-if (!window.PhotoTools) {
-  console.error('PhotoTools not available')
-  throw new Error('PhotoTools not initialized')
-}
-
-const { storage, logic, ui, file } = window.PhotoTools
-const { loadProducts, loadOrders, saveProducts, saveOrders } = storage
-const { downloadJson, readJsonFile } = file
-const { $, setText, setHidden } = ui
+const { storage, ui, file, auth, logic } = window.PhotoTools
+const { loadProducts, loadOrders, replaceProducts, replaceOrders, requestBackup } = storage
+const { downloadJson, downloadTextFile, readJsonFile } = file
+const { $, setText, setHidden, setupSidebar } = ui
+const { formatMoney } = logic
 const t = window.i18n?.t || ((k) => k)
 
 const els = {
   exportOrdersBtn: $('#exportOrdersBtn'),
-  exportOrdersExcelBtn: $('#exportOrdersExcelBtn'),
   importOrdersBtn: $('#importOrdersBtn'),
   importOrdersFile: $('#importOrdersFile'),
   exportProductsBtn: $('#exportProductsBtn'),
   importProductsBtn: $('#importProductsBtn'),
   importProductsFile: $('#importProductsFile'),
+  exportOrdersCsvBtn: $('#exportOrdersCsvBtn'),
+  backupNowBtn: $('#backupNowBtn'),
   exportOrdersError: $('#exportOrdersError'),
   exportOrdersOk: $('#exportOrdersOk'),
-  exportOrdersExcelError: $('#exportOrdersExcelError'),
-  exportOrdersExcelOk: $('#exportOrdersExcelOk'),
   importOrdersError: $('#importOrdersError'),
   importOrdersOk: $('#importOrdersOk'),
   exportProductsError: $('#exportProductsError'),
   exportProductsOk: $('#exportProductsOk'),
   importProductsError: $('#importProductsError'),
   importProductsOk: $('#importProductsOk'),
+  backupOk: $('#backupOk'),
+  backupError: $('#backupError'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
@@ -52,141 +49,56 @@ function showOk(element, msg) {
 
 function exportOrders() {
   if (orders.length === 0) {
-    showError(els.exportOrdersError, 'No orders to export')
+    showError(els.exportOrdersError, t('noOrders'))
     showOk(els.exportOrdersOk, '')
     return
   }
-  const date = new Date().toISOString().slice(0, 10)
-  downloadJson(`orders_${date}.json`, orders)
+  downloadJson(`orders_${new Date().toISOString().slice(0, 10)}.json`, orders)
   showOk(els.exportOrdersOk, t('dataExported'))
   showError(els.exportOrdersError, '')
 }
 
-function downloadTextFile(filename, content) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
-function escapeCsvCell(v) {
-  const s = String(v ?? '')
-  const needs = /[",\n\r]/.test(s)
-  const escaped = s.replaceAll('"', '""')
-  return needs ? `"${escaped}"` : escaped
-}
-
-function normalizeItemType(name) {
-  const n = String(name ?? '').toLowerCase().replace(/×/g, 'x').replace(/\s+/g, '')
-  if (n.includes('3x4') || n.includes('3٭4') || n.includes('3در4')) return '3x4'
-  if (n.includes('2x3') || n.includes('2در3') || n.includes('2٭3')) return '2x3'
-  if (n.includes('4x6') || n.includes('6x4') || n.includes('4در6')) return '4x6'
-  if (n.includes('مجدد') || n.includes('retake')) return 'retake'
-  if (n.includes('بزرگ') || n.includes('large')) return 'large'
-  return 'other'
-}
-
-function ordersToExcelCsv(list) {
-  const header = [
-    'lastName',
-    'phone',
-    'qty_3x4',
-    'qty_2x3',
-    'qty_4x6',
-    'qty_retake',
-    'qty_large',
-    'totalAmount',
-    'deposit',
-    'remainingAmount',
-    'description',
-    'date'
-  ]
-
-  const rows = list.map(order => {
-    const counters = {
-      '3x4': 0,
-      '2x3': 0,
-      '4x6': 0,
-      retake: 0,
-      large: 0
-    }
-
-    const items = Array.isArray(order.items) ? order.items : []
-    items.forEach(it => {
-      const type = normalizeItemType(it.name)
-      if (counters[type] !== undefined) {
-        counters[type] += Number(it.quantity ?? 0) || 0
-      }
-    })
-
-    const totalAmount = Number(order.totalAmount ?? 0) || 0
-    const deposit = Number(order.deposit ?? 0) || 0
-    const remainingAmount = order.remainingAmount !== undefined
-      ? Number(order.remainingAmount) || 0
-      : Math.max(0, totalAmount - deposit)
-
-    return [
-      order.customer?.lastName ?? '',
-      order.customer?.phone ?? '',
-      counters['3x4'],
-      counters['2x3'],
-      counters['4x6'],
-      counters.retake,
-      counters.large,
-      totalAmount,
-      deposit,
-      remainingAmount,
-      order.description ?? '',
-      order.createdAt ?? ''
-    ].map(escapeCsvCell).join(',')
+function ordersToCsv(list) {
+  const header = ['id', 'date', 'lastName', 'phone', 'status', 'totalAmount', 'deposit', 'remainingAmount', 'items']
+  const rows = list.map(o => {
+    const items = JSON.stringify((o.items || []).map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice })))
+    return [o.id, o.createdAt, o.customer?.lastName, o.customer?.phone, o.status, o.totalAmount, o.deposit, o.remainingAmount, items]
+      .map(v => {
+        const s = String(v ?? '')
+        return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s
+      }).join(',')
   })
-
   return [header.join(','), ...rows].join('\n')
 }
 
-function exportOrdersExcel() {
+function exportOrdersCsv() {
   if (orders.length === 0) {
-    showError(els.exportOrdersExcelError, 'No orders to export')
-    showOk(els.exportOrdersExcelOk, '')
+    showError(els.exportOrdersError, t('noOrders'))
     return
   }
-
-  const csv = ordersToExcelCsv(orders)
-  const date = new Date().toISOString().slice(0, 10)
-  downloadTextFile(`orders_${date}.csv`, csv)
-  showOk(els.exportOrdersExcelOk, t('dataExported'))
-  showError(els.exportOrdersExcelError, '')
+  downloadTextFile(`orders_${new Date().toISOString().slice(0, 10)}.csv`, ordersToCsv(orders), 'text/csv;charset=utf-8')
+  showOk(els.exportOrdersOk, t('dataExported'))
+  showError(els.exportOrdersError, '')
 }
 
 async function importOrders() {
-  const file = els.importOrdersFile.files?.[0]
-  if (!file) {
+  const selected = els.importOrdersFile.files?.[0]
+  if (!selected) {
     els.importOrdersFile.click()
     return
   }
-  
   try {
-    const data = await readJsonFile(file)
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid data format')
-    }
-    
-    const confirmed = confirm(t('confirmImport'))
-    if (!confirmed) return
-    
-    orders = data
-    await saveOrders(orders)
-    
+    const data = await readJsonFile(selected)
+    if (!Array.isArray(data)) throw new Error('Invalid data format')
+    if (!confirm(t('confirmImport'))) return
+    await requestBackup()
+    await replaceOrders(data)
+    orders = await loadOrders()
     showOk(els.importOrdersOk, t('dataImported'))
     showError(els.importOrdersError, '')
     els.importOrdersFile.value = ''
   } catch (e) {
-    showError(els.importOrdersError, t('importError') + ': ' + (e.message || 'Unknown error'))
+    showError(els.importOrdersError, `${t('importError')}: ${e.message || ''}`)
     showOk(els.importOrdersOk, '')
     els.importOrdersFile.value = ''
   }
@@ -194,109 +106,68 @@ async function importOrders() {
 
 function exportProducts() {
   if (products.length === 0) {
-    showError(els.exportProductsError, 'No products to export')
+    showError(els.exportProductsError, t('emptyProducts'))
     showOk(els.exportProductsOk, '')
     return
   }
-  const date = new Date().toISOString().slice(0, 10)
-  downloadJson(`products_${date}.json`, products)
+  downloadJson(`products_${new Date().toISOString().slice(0, 10)}.json`, products)
   showOk(els.exportProductsOk, t('dataExported'))
   showError(els.exportProductsError, '')
 }
 
 async function importProducts() {
-  const file = els.importProductsFile.files?.[0]
-  if (!file) {
+  const selected = els.importProductsFile.files?.[0]
+  if (!selected) {
     els.importProductsFile.click()
     return
   }
-  
   try {
-    const data = await readJsonFile(file)
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid data format')
-    }
-    
-    const confirmed = confirm(t('confirmImport'))
-    if (!confirmed) return
-    
-    products = data
-    await saveProducts(products)
-    
+    const data = await readJsonFile(selected)
+    if (!Array.isArray(data)) throw new Error('Invalid data format')
+    if (!confirm(t('confirmImport'))) return
+    await requestBackup()
+    await replaceProducts(data)
+    products = await loadProducts()
     showOk(els.importProductsOk, t('dataImported'))
     showError(els.importProductsError, '')
     els.importProductsFile.value = ''
   } catch (e) {
-    showError(els.importProductsError, t('importError') + ': ' + (e.message || 'Unknown error'))
+    showError(els.importProductsError, `${t('importError')}: ${e.message || ''}`)
     showOk(els.importProductsOk, '')
     els.importProductsFile.value = ''
   }
 }
 
-function handleLogout() {
-  const { auth } = window.PhotoTools
-  if (confirm('Are you sure you want to logout?')) {
-    auth.logout()
+async function backupNow() {
+  try {
+    await requestBackup()
+    showOk(els.backupOk, t('backupDone'))
+    showError(els.backupError, '')
+  } catch (e) {
+    showError(els.backupError, e.message)
+    showOk(els.backupOk, '')
   }
-}
-
-async function checkAuth() {
-  const { auth } = window.PhotoTools
-  const isValid = await auth.checkAuthToken()
-  if (!isValid) {
-    auth.logout()
-    return false
-  }
-  return true
 }
 
 async function init() {
-  if (!(await checkAuth())) return
-  
+  const me = await auth.requireAuth()
+  if (!me) return
   ui.initI18n()
-  const { auth } = window.PhotoTools
-  auth.initSessionTimeout()
-  
+  setupSidebar(els, t)
   await initData()
-  
-  if (els.exportOrdersBtn) {
-    els.exportOrdersBtn.addEventListener('click', exportOrders)
-  }
-  if (els.exportOrdersExcelBtn) {
-    els.exportOrdersExcelBtn.addEventListener('click', exportOrdersExcel)
-  }
-  if (els.importOrdersBtn) {
-    els.importOrdersBtn.addEventListener('click', importOrders)
-  }
-  if (els.importOrdersFile) {
-    els.importOrdersFile.addEventListener('change', importOrders)
-  }
-  if (els.exportProductsBtn) {
-    els.exportProductsBtn.addEventListener('click', exportProducts)
-  }
-  if (els.importProductsBtn) {
-    els.importProductsBtn.addEventListener('click', importProducts)
-  }
-  if (els.importProductsFile) {
-    els.importProductsFile.addEventListener('change', importProducts)
-  }
+
+  els.exportOrdersBtn.addEventListener('click', exportOrders)
+  els.importOrdersBtn.addEventListener('click', importOrders)
+  els.importOrdersFile.addEventListener('change', importOrders)
+  els.exportProductsBtn.addEventListener('click', exportProducts)
+  els.importProductsBtn.addEventListener('click', importProducts)
+  els.importProductsFile.addEventListener('change', importProducts)
+  if (els.exportOrdersCsvBtn) els.exportOrdersCsvBtn.addEventListener('click', exportOrdersCsv)
+  if (els.backupNowBtn) els.backupNowBtn.addEventListener('click', backupNow)
   if (els.logoutBtn) {
-    els.logoutBtn.addEventListener('click', handleLogout)
-  }
-  
-  if (els.sidebarToggle && els.sidebar) {
-    els.sidebarToggle.addEventListener('click', () => {
-      els.sidebar.classList.toggle('collapsed')
-      const isCollapsed = els.sidebar.classList.contains('collapsed')
-      localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
+    els.logoutBtn.addEventListener('click', () => {
+      if (confirm(t('logoutConfirm'))) auth.logout()
     })
-    
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState === 'true') {
-      els.sidebar.classList.add('collapsed')
-    }
-    
-    // Tooltips are updated automatically by initI18n()
   }
 }
 
@@ -305,4 +176,3 @@ if (document.readyState === 'loading') {
 } else {
   init()
 }
-

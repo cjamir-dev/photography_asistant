@@ -1,586 +1,398 @@
-const { storage, logic, ui } = window.PhotoTools
-const { loadOrders, saveOrders } = storage
-const { formatMoney } = logic
-const { $, setText, setHidden, escapeHtml } = ui
+const { storage, logic, ui, auth, formatMoneyInput } = window.PhotoTools
+const {
+  loadOrders,
+  loadProducts,
+  updateOrder,
+  patchOrder,
+  deleteOrder,
+  addPayment
+} = storage
+const {
+  formatMoney,
+  parseMoney,
+  formatDateFa,
+  formatDateOnlyFa,
+  statusLabel,
+  ORDER_STATUSES,
+  createOrderDraft,
+  setCustomer,
+  addItemByProduct,
+  updateItemQty,
+  removeItem,
+  validateFinalOrder,
+  recomputeOrder,
+  parseQty
+} = logic
+const { $, setText, setHidden, escapeHtml, setupSidebar, printReceipt } = ui
 const t = window.i18n?.t || ((k) => k)
 
 const els = {
-  filterSearch: $('#filterSearch'),
-  filterPaymentStatus: $('#filterPaymentStatus'),
-  filterDateRange: $('#filterDateRange'),
-  filterSortBy: $('#filterSortBy'),
-  filterDateFrom: $('#filterDateFrom'),
-  filterDateTo: $('#filterDateTo'),
-  customDateRange: $('#customDateRange'),
+  searchQuery: $('#searchQuery'),
+  filterStatus: $('#filterStatus'),
+  filterUnpaid: $('#filterUnpaid'),
+  dateFrom: $('#dateFrom'),
+  dateTo: $('#dateTo'),
+  applyFiltersBtn: $('#applyFiltersBtn'),
   clearFiltersBtn: $('#clearFiltersBtn'),
-  filterResults: $('#filterResults'),
   ordersList: $('#ordersList'),
-  ordersContent: $('#ordersContent'),
   ordersCount: $('#ordersCount'),
+  editPanel: $('#editPanel'),
+  editLastName: $('#editLastName'),
+  editPhone: $('#editPhone'),
+  editNote: $('#editNote'),
+  editDueDate: $('#editDueDate'),
+  editStatus: $('#editStatus'),
+  editProductSelect: $('#editProductSelect'),
+  editQty: $('#editQty'),
+  editAddBtn: $('#editAddBtn'),
+  editCartList: $('#editCartList'),
+  editDeposit: $('#editDeposit'),
+  editTotal: $('#editTotal'),
+  editRemaining: $('#editRemaining'),
+  editSaveBtn: $('#editSaveBtn'),
+  editCancelBtn: $('#editCancelBtn'),
+  editError: $('#editError'),
+  editOk: $('#editOk'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
 }
 
 let orders = []
-let filteredOrders = []
-let currentViewMode = localStorage.getItem('ordersViewMode') || 'list'
+let products = []
+let editing = null
 
-function getTodayDate() {
-  const today = new Date()
-  return today.toISOString().split('T')[0]
+function fillStatusSelect(selectEl, includeAll) {
+  if (!selectEl) return
+  const options = []
+  if (includeAll) options.push(`<option value="">${t('filterAll')}</option>`)
+  ORDER_STATUSES.forEach(s => {
+    options.push(`<option value="${s}">${statusLabel(s, t)}</option>`)
+  })
+  selectEl.innerHTML = options.join('')
 }
 
-function getDateRange(range) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
-  switch (range) {
-    case 'today':
-      return {
-        start: today.toISOString(),
-        end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
-      }
-    case 'week':
-      const weekStart = new Date(today)
-      weekStart.setDate(today.getDate() - today.getDay())
-      return {
-        start: weekStart.toISOString(),
-        end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
-      }
-    case 'month':
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-      const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59)
-      return {
-        start: monthStart.toISOString(),
-        end: monthEnd.toISOString()
-      }
-    case 'custom':
-      const from = els.filterDateFrom.value
-      const to = els.filterDateTo.value
-      if (from && to) {
-        return {
-          start: new Date(from).toISOString(),
-          end: new Date(to + 'T23:59:59').toISOString()
-        }
-      }
-      return null
-    default:
-      return null
+async function refresh() {
+  orders = await loadOrders()
+  products = await loadProducts()
+  renderProductsSelect()
+  renderList()
+}
+
+function renderProductsSelect() {
+  if (!els.editProductSelect) return
+  els.editProductSelect.innerHTML = [
+    `<option value=""></option>`,
+    ...products
+      .slice()
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fa'))
+      .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
+  ].join('')
+}
+
+function getFilters() {
+  return {
+    q: String(els.searchQuery?.value || '').trim().toLowerCase(),
+    status: els.filterStatus?.value || '',
+    unpaid: Boolean(els.filterUnpaid?.checked),
+    from: els.dateFrom?.value || '',
+    to: els.dateTo?.value || ''
   }
 }
 
-function filterOrders() {
-  const searchTerm = els.filterSearch.value.toLowerCase().trim()
-  const paymentStatus = els.filterPaymentStatus.value
-  const dateRange = els.filterDateRange.value
-  const sortBy = els.filterSortBy.value
-  
-  filteredOrders = orders.filter(order => {
-    // Search filter
-    if (searchTerm) {
-      const customerName = (order.customer?.lastName || '').toLowerCase()
-      const customerPhone = (order.customer?.phone || '').toLowerCase()
-      const orderId = (order.id || '').toLowerCase()
-      const itemsText = (order.items || [])
-        .map(item => (item.name || '').toLowerCase())
-        .join(' ')
-      
-      if (!customerName.includes(searchTerm) && 
-          !customerPhone.includes(searchTerm) &&
-          !orderId.includes(searchTerm) &&
-          !itemsText.includes(searchTerm)) {
-        return false
-      }
-    }
-    
-    // Payment status filter
-    if (paymentStatus !== 'all') {
-      const total = order.totalAmount || 0
-      const remaining = order.remainingAmount !== undefined 
-        ? order.remainingAmount 
-        : (total - (order.deposit || 0))
-      
-      if (paymentStatus === 'paid' && remaining > 0) {
-        return false
-      }
-      if (paymentStatus === 'unpaid' && remaining <= 0) {
-        return false
-      }
-    }
-    
-    // Date range filter
-    if (dateRange !== 'all') {
-      const dateRangeObj = getDateRange(dateRange)
-      if (dateRangeObj) {
-        const orderDate = new Date(order.createdAt || order.customer?.createdAt || Date.now())
-        if (orderDate < new Date(dateRangeObj.start) || orderDate > new Date(dateRangeObj.end)) {
-          return false
-        }
-      }
-    }
-    
-    return true
-  })
-  
-  // Sort
-  filteredOrders.sort((a, b) => {
-    switch (sortBy) {
-      case 'newest':
-        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-      case 'oldest':
-        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
-      case 'amount-high':
-        return (b.totalAmount || 0) - (a.totalAmount || 0)
-      case 'amount-low':
-        return (a.totalAmount || 0) - (b.totalAmount || 0)
-      default:
-        return 0
-    }
-  })
-  
-  renderOrders()
-  updateFilterResults()
+function matchesFilters(order, filters) {
+  if (filters.status && order.status !== filters.status) return false
+  if (filters.unpaid && !(order.remainingAmount > 0)) return false
+  if (filters.q) {
+    const hay = `${order.customer?.lastName || ''} ${order.customer?.phone || ''} ${order.description || ''}`.toLowerCase()
+    if (!hay.includes(filters.q)) return false
+  }
+  if (filters.from) {
+    const d = (order.createdAt || '').slice(0, 10)
+    if (d < filters.from) return false
+  }
+  if (filters.to) {
+    const d = (order.createdAt || '').slice(0, 10)
+    if (d > filters.to) return false
+  }
+  return true
 }
 
-function renderOrders() {
-  if (filteredOrders.length === 0) {
-    els.ordersContent.innerHTML = `<p class="help">${t('noOrdersFound')}</p>`
+function renderList() {
+  const filters = getFilters()
+  const list = orders
+    .filter(o => matchesFilters(o, filters))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+
+  setText(els.ordersCount, `${list.length}`)
+  if (list.length === 0) {
+    els.ordersList.innerHTML = `<p class="help">${t('noOrdersMatch')}</p>`
     return
   }
-  
-  switch (currentViewMode) {
-    case 'table':
-      renderTableView()
-      break
-    case 'card':
-      renderCardView()
-      break
-    default:
-      renderListView()
-  }
-  
-  attachOrderActions()
-  updateViewModeButtons()
-}
 
-function renderListView() {
-  const rows = filteredOrders.map((order, index) => {
-    const itemText = (order.items || [])
-      .map(it => `${it.name || ''} × ${it.quantity || 0}`)
-      .join(', ')
-    
-    const date = new Date(order.createdAt || order.customer?.createdAt || Date.now())
-    const dateStr = date.toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    
-    const currency = t('currency')
-    const total = formatMoney(order.totalAmount || 0)
-    const deposit = formatMoney(order.deposit || 0)
-    const totalAmount = order.totalAmount || 0
-    const depositAmount = order.deposit || 0
-    const remainingAmount = order.remainingAmount !== undefined 
-      ? order.remainingAmount 
-      : (totalAmount - depositAmount)
-    const remaining = formatMoney(remainingAmount)
-    const isSettled = remainingAmount <= 0 && totalAmount > 0
-    
-    const actionsHtml = `
-      <div class="actions">
-        <button class="btn" data-action="receipt" data-order-id="${escapeHtml(order.id)}" type="button">${t('printReceipt')}</button>
-        <button class="btn" data-action="edit" data-order-id="${escapeHtml(order.id)}" type="button">${t('editOrder')}</button>
-        <button class="btn danger" data-action="delete" data-order-id="${escapeHtml(order.id)}" type="button">${t('deleteOrder')}</button>
-        ${!isSettled ? `<button class="btn primary" data-action="settle" data-order-id="${escapeHtml(order.id)}" type="button">${t('settlePayment')}</button>` : ''}
-      </div>
-    `
-    
+  const currency = t('currency')
+  els.ordersList.innerHTML = list.map(o => {
+    const remaining = o.remainingAmount || 0
+    const items = (o.items || []).map(it => `${it.name}×${it.quantity}`).join(t('listSeparator'))
     return `
-      <div class="item" data-order-id="${escapeHtml(order.id)}" style="--item-index: ${index}">
+      <div class="item" data-order-id="${escapeHtml(o.id)}">
         <div class="meta">
-          <div class="title">${escapeHtml(order.customer?.lastName || '')}</div>
-          <div class="sub">${escapeHtml(order.customer?.phone || '')}</div>
-          <div class="sub">${escapeHtml(dateStr)}</div>
-          <div class="sub">${escapeHtml(itemText)}</div>
-          <div class="sub" style="margin-top: 8px">
-            <span style="color: var(--accent); font-weight: 600">${t('totalAmount')}: ${total} ${currency}</span>
-            ${depositAmount > 0 ? `<span style="margin-left: 12px">${t('deposit')}: ${deposit} ${currency}</span>` : ''}
+          <div class="title">${escapeHtml(o.customer?.lastName || '')} — ${escapeHtml(o.customer?.phone || '')}</div>
+          <div class="sub">${escapeHtml(formatDateFa(o.createdAt))} | ${escapeHtml(statusLabel(o.status, t))}${o.dueDate ? ` | ${t('dueDate')}: ${escapeHtml(formatDateOnlyFa(o.dueDate))}` : ''}</div>
+          <div class="sub">${escapeHtml(items)}</div>
+          ${o.description ? `<div class="sub">${escapeHtml(o.description)}</div>` : ''}
+          <div class="sub money-summary" style="margin-top:4px">
+            ${t('totalAmount')}: <span class="money-ltr">${formatMoney(o.totalAmount || 0)}</span> ${currency}
+            — ${t('deposit')}: <span class="money-ltr">${formatMoney(o.deposit || 0)}</span> ${currency}
           </div>
-          ${!isSettled ? 
-            `<div class="sub" style="color: var(--danger); margin-top: 4px; font-weight: 600">${t('remainingAmount')}: ${remaining} ${currency}</div>` : 
-            `<div class="sub" style="color: var(--ok); margin-top: 4px; font-weight: 600">${t('settled')}</div>`
-          }
+          <div class="sub order-balance ${remaining > 0 ? 'is-remaining' : 'is-settled'}">
+            ${remaining > 0 ? `${t('remaining')}: <span class="money-ltr">${formatMoney(remaining)}</span> ${currency}` : t('settled')}
+          </div>
         </div>
-        ${actionsHtml}
+        <div class="actions">
+          <select data-action="status" class="order-status-select">
+            ${ORDER_STATUSES.map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${statusLabel(s, t)}</option>`).join('')}
+          </select>
+          ${remaining > 0 ? `<button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button>` : ''}
+          ${remaining > 0 ? `<button class="btn" data-action="partial" type="button">${t('partialPayment')}</button>` : ''}
+          <button class="btn" data-action="edit" type="button">${t('editBtn')}</button>
+          <button class="btn" data-action="print" type="button">${t('printReceipt')}</button>
+          <button class="btn danger" data-action="delete" type="button">${t('deleteBtn')}</button>
+        </div>
       </div>
     `
   }).join('')
-  
-  els.ordersContent.innerHTML = `<div class="list scrollable-orders" id="ordersList">${rows}</div>`
-  els.ordersList = $('#ordersList')
 }
 
-function renderTableView() {
-  const tableRows = filteredOrders.map((order, index) => {
-    const itemText = (order.items || [])
-      .map(it => `${it.name || ''} × ${it.quantity || 0}`)
-      .join(', ')
-    
-    const date = new Date(order.createdAt || order.customer?.createdAt || Date.now())
-    const dateStr = date.toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    
-    const currency = t('currency')
-    const total = formatMoney(order.totalAmount || 0)
-    const deposit = formatMoney(order.deposit || 0)
-    const totalAmount = order.totalAmount || 0
-    const depositAmount = order.deposit || 0
-    const remainingAmount = order.remainingAmount !== undefined 
-      ? order.remainingAmount 
-      : (totalAmount - depositAmount)
-    const remaining = formatMoney(remainingAmount)
-    const isSettled = remainingAmount <= 0 && totalAmount > 0
-    
-    return `
-      <tr class="table-row" data-order-id="${escapeHtml(order.id)}" style="--item-index: ${index}">
-        <td class="table-cell table-cell-name">
-          <div class="table-cell-content">
-            <div class="table-cell-title">${escapeHtml(order.customer?.lastName || '')}</div>
-            <div class="table-cell-sub">${escapeHtml(order.customer?.phone || '')}</div>
-          </div>
-        </td>
-        <td class="table-cell table-cell-date">${escapeHtml(dateStr)}</td>
-        <td class="table-cell table-cell-items">${escapeHtml(itemText)}</td>
-        <td class="table-cell table-cell-amount">
-          <div class="table-cell-content">
-            <div class="table-cell-title">${total} ${currency}</div>
-            ${depositAmount > 0 ? `<div class="table-cell-sub">${t('deposit')}: ${deposit} ${currency}</div>` : ''}
-          </div>
-        </td>
-        <td class="table-cell table-cell-status">
-          ${!isSettled ? 
-            `<span class="status-badge status-unpaid">${t('unpaid')}</span>` : 
-            `<span class="status-badge status-paid">${t('settled')}</span>`
-          }
-        </td>
-        <td class="table-cell table-cell-actions">
-          <div class="table-actions">
-            <button class="btn-icon" data-action="receipt" data-order-id="${escapeHtml(order.id)}" type="button" title="${t('printReceipt')}">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 2H12V4H4V2ZM4 4V12H12V4M4 12H2V14H14V12H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-            <button class="btn-icon" data-action="edit" data-order-id="${escapeHtml(order.id)}" type="button" title="${t('editOrder')}">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.3333 2.66667C11.5084 2.49157 11.7163 2.40402 11.9569 2.40402C12.1975 2.40402 12.4054 2.49157 12.5805 2.66667C12.7556 2.84178 12.8431 3.04972 12.8431 3.29048C12.8431 3.53124 12.7556 3.73918 12.5805 3.91429L4.24719 12.2476L2 13.3333L3.08571 11.0857L11.3333 2.66667Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-            ${!isSettled ? 
-              `<button class="btn-icon btn-icon-primary" data-action="settle" data-order-id="${escapeHtml(order.id)}" type="button" title="${t('settlePayment')}">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M13.3333 4L6 11.3333L2.66667 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>` : ''
-            }
-            <button class="btn-icon btn-icon-danger" data-action="delete" data-order-id="${escapeHtml(order.id)}" type="button" title="${t('deleteOrder')}">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 4V13.3333C12 13.687 11.8595 14.0261 11.6095 14.2761C11.3594 14.5262 11.0203 14.6667 10.6667 14.6667H5.33333C4.97971 14.6667 4.64057 14.5262 4.39052 14.2761C4.14048 14.0261 4 13.687 4 13.3333V4M6 4V2.66667C6 2.31305 6.14048 1.97391 6.39052 1.72386C6.64057 1.47381 6.97971 1.33333 7.33333 1.33333H8.66667C9.02029 1.33333 9.35943 1.47381 9.60948 1.72386C9.85952 1.97391 10 2.31305 10 2.66667V4M2 4H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `
-  }).join('')
-  
-  const tableHtml = `
-    <div class="table-container scrollable-orders">
-      <table class="orders-table">
-        <thead>
-          <tr>
-            <th class="table-header table-header-name" data-i18n="customerName">Customer</th>
-            <th class="table-header table-header-date" data-i18n="orderDate">Date</th>
-            <th class="table-header table-header-items" data-i18n="items">Items</th>
-            <th class="table-header table-header-amount" data-i18n="totalAmount">Amount</th>
-            <th class="table-header table-header-status" data-i18n="paymentStatus">Status</th>
-            <th class="table-header table-header-actions" data-i18n="actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="ordersList">
-          ${tableRows}
-        </tbody>
-      </table>
+function showEditError(msg) {
+  setText(els.editError, msg)
+  setHidden(els.editError, !msg)
+  setHidden(els.editOk, true)
+}
+
+function showEditOk(msg) {
+  setText(els.editOk, msg)
+  setHidden(els.editOk, !msg)
+  setHidden(els.editError, true)
+}
+
+function openEdit(order) {
+  editing = recomputeOrder({ ...order, items: (order.items || []).map(it => ({ ...it })) })
+  setHidden(els.editPanel, false)
+  els.editLastName.value = editing.customer?.lastName || ''
+  els.editPhone.value = editing.customer?.phone || ''
+  els.editNote.value = editing.description || ''
+  els.editDueDate.value = editing.dueDate || ''
+  els.editStatus.value = editing.status || 'registered'
+  els.editDeposit.value = formatMoneyInput(String(editing.deposit || 0))
+  els.editQty.value = '1'
+  showEditError('')
+  showEditOk('')
+  renderEditCart()
+  els.editPanel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function closeEdit() {
+  editing = null
+  setHidden(els.editPanel, true)
+}
+
+function renderEditCart() {
+  if (!editing) return
+  editing = recomputeOrder(editing)
+  const currency = t('currency')
+  els.editCartList.innerHTML = (editing.items || []).map(it => `
+    <div class="item" data-id="${escapeHtml(it.id)}">
+      <div class="meta">
+        <div class="title">${escapeHtml(it.name)}</div>
+        <div class="sub">${formatMoney(it.unitPrice)} ${currency} ×
+          <input data-role="qty" type="number" min="1" value="${escapeHtml(it.quantity)}" style="width:80px;margin:0 6px" />
+          = ${formatMoney(it.totalPrice)} ${currency}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn danger" data-action="del" type="button">${t('deleteItem')}</button>
+      </div>
     </div>
-  `
-  
-  els.ordersContent.innerHTML = tableHtml
-  els.ordersList = $('#ordersList')
-}
+  `).join('') || `<p class="help">${t('emptyCart')}</p>`
 
-function renderCardView() {
-  const cards = filteredOrders.map((order, index) => {
-    const itemText = (order.items || [])
-      .map(it => `${it.name || ''} × ${it.quantity || 0}`)
-      .join(', ')
-    
-    const date = new Date(order.createdAt || order.customer?.createdAt || Date.now())
-    const dateStr = date.toLocaleString('fa-IR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    
-    const currency = t('currency')
-    const total = formatMoney(order.totalAmount || 0)
-    const deposit = formatMoney(order.deposit || 0)
-    const totalAmount = order.totalAmount || 0
-    const depositAmount = order.deposit || 0
-    const remainingAmount = order.remainingAmount !== undefined 
-      ? order.remainingAmount 
-      : (totalAmount - depositAmount)
-    const remaining = formatMoney(remainingAmount)
-    const isSettled = remainingAmount <= 0 && totalAmount > 0
-    
-    return `
-      <div class="order-card" data-order-id="${escapeHtml(order.id)}" style="--item-index: ${index}">
-        <div class="order-card-header">
-          <div class="order-card-title">
-            <h3>${escapeHtml(order.customer?.lastName || '')}</h3>
-            <div class="order-card-subtitle">${escapeHtml(order.customer?.phone || '')}</div>
-          </div>
-          ${!isSettled ? 
-            `<span class="status-badge status-unpaid">${t('unpaid')}</span>` : 
-            `<span class="status-badge status-paid">${t('settled')}</span>`
-          }
-        </div>
-        <div class="order-card-body">
-          <div class="order-card-row">
-            <span class="order-card-label">${t('orderDate')}:</span>
-            <span class="order-card-value">${escapeHtml(dateStr)}</span>
-          </div>
-          <div class="order-card-row">
-            <span class="order-card-label">${t('items')}:</span>
-            <span class="order-card-value">${escapeHtml(itemText)}</span>
-          </div>
-          <div class="order-card-row">
-            <span class="order-card-label">${t('totalAmount')}:</span>
-            <span class="order-card-value order-card-amount">${total} ${currency}</span>
-          </div>
-          ${depositAmount > 0 ? `
-            <div class="order-card-row">
-              <span class="order-card-label">${t('deposit')}:</span>
-              <span class="order-card-value">${deposit} ${currency}</span>
-            </div>
-          ` : ''}
-          ${!isSettled ? `
-            <div class="order-card-row">
-              <span class="order-card-label">${t('remainingAmount')}:</span>
-              <span class="order-card-value order-card-remaining">${remaining} ${currency}</span>
-            </div>
-          ` : ''}
-        </div>
-        <div class="order-card-actions">
-          <button class="btn" data-action="receipt" data-order-id="${escapeHtml(order.id)}" type="button">${t('printReceipt')}</button>
-          <button class="btn" data-action="edit" data-order-id="${escapeHtml(order.id)}" type="button">${t('editOrder')}</button>
-          ${!isSettled ? `<button class="btn primary" data-action="settle" data-order-id="${escapeHtml(order.id)}" type="button">${t('settlePayment')}</button>` : ''}
-          <button class="btn danger" data-action="delete" data-order-id="${escapeHtml(order.id)}" type="button">${t('deleteOrder')}</button>
-        </div>
-      </div>
-    `
-  }).join('')
-  
-  els.ordersContent.innerHTML = `<div class="orders-grid scrollable-orders" id="ordersList">${cards}</div>`
-  els.ordersList = $('#ordersList')
-}
-
-function updateViewModeButtons() {
-  const buttons = document.querySelectorAll('.view-mode-btn')
-  buttons.forEach(btn => {
-    if (btn.getAttribute('data-view') === currentViewMode) {
-      btn.classList.add('active')
-    } else {
-      btn.classList.remove('active')
-    }
-  })
-  
-  // Update container class
-  if (els.ordersContent) {
-    els.ordersContent.className = 'orders-content'
-    els.ordersContent.classList.add(`view-${currentViewMode}`)
+  if (els.editTotal) {
+    els.editTotal.innerHTML = `<span class="money-ltr">${formatMoney(editing.totalAmount)}</span> ${currency}`
   }
-  
-  // Update i18n for table headers
-  if (currentViewMode === 'table') {
-    setTimeout(() => {
-      ui.initI18n()
-    }, 0)
+  if (els.editRemaining) {
+    els.editRemaining.innerHTML = `<span class="money-ltr">${formatMoney(editing.remainingAmount)}</span> ${currency}`
   }
 }
 
-function attachOrderActions() {
-  const actionButtons = els.ordersList.querySelectorAll('[data-action]')
-  actionButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = btn.getAttribute('data-action')
-      const orderId = btn.getAttribute('data-order-id')
-      handleOrderAction(action, orderId)
-    })
-  })
-}
-
-function handleOrderAction(action, orderId) {
-  const order = orders.find(o => o.id === orderId)
+async function onListClick(e) {
+  const row = e.target?.closest('[data-order-id]')
+  if (!row) return
+  const id = row.getAttribute('data-order-id')
+  const order = orders.find(o => o.id === id)
   if (!order) return
-  
-  switch (action) {
-    case 'receipt':
-      window.location.href = `./receipt.html?orderId=${encodeURIComponent(orderId)}`
-      break
-    case 'edit':
-      window.location.href = `./index.html?edit=${encodeURIComponent(orderId)}`
-      break
-    case 'delete':
-      if (confirm(t('deleteOrderConfirm') || 'Are you sure you want to delete this order?')) {
-        deleteOrder(orderId)
+
+  const statusSelect = e.target?.closest('select[data-action="status"]')
+  if (statusSelect && e.type === 'change') {
+    try {
+      await patchOrder(id, { status: statusSelect.value })
+      await refresh()
+    } catch (err) {
+      alert(err.message)
+    }
+    return
+  }
+
+  const btn = e.target?.closest('button[data-action]')
+  if (!btn) return
+  const action = btn.getAttribute('data-action')
+
+  try {
+    if (action === 'print') {
+      printReceipt(order, t)
+      return
+    }
+    if (action === 'edit') {
+      openEdit(order)
+      return
+    }
+    if (action === 'delete') {
+      if (!confirm(t('deleteOrderConfirm'))) return
+      await deleteOrder(id)
+      if (editing?.id === id) closeEdit()
+      await refresh()
+      return
+    }
+    if (action === 'settle') {
+      if (!confirm(t('confirmSettleAll'))) return
+      await addPayment(id, order.remainingAmount || 0, t('settlePayment'))
+      await refresh()
+      return
+    }
+    if (action === 'partial') {
+      const raw = prompt(t('paymentAmount'), String(order.remainingAmount || 0))
+      if (raw === null) return
+      const amount = parseMoney(raw)
+      if (amount <= 0 || amount > (order.remainingAmount || 0)) {
+        alert(t('errorPaymentAmount'))
+        return
       }
-      break
-    case 'settle':
-      if (confirm(t('settleOrderConfirm') || 'Mark this order as settled?')) {
-        settleOrder(orderId)
-      }
-      break
+      await addPayment(id, amount, t('partialPayment'))
+      await refresh()
+    }
+  } catch (err) {
+    alert(err.message)
   }
 }
 
-async function deleteOrder(orderId) {
-  orders = orders.filter(o => o.id !== orderId)
-  await saveOrders(orders)
-  filterOrders()
+function onEditCartClick(e) {
+  if (!editing) return
+  const btn = e.target?.closest('button[data-action="del"]')
+  if (!btn) return
+  const id = e.target.closest('.item')?.getAttribute('data-id')
+  if (!id) return
+  editing = removeItem(editing, id)
+  renderEditCart()
 }
 
-async function settleOrder(orderId) {
-  const order = orders.find(o => o.id === orderId)
-  if (order) {
-    order.remainingAmount = 0
-    if (!order.history) order.history = []
-    order.history.push({
-      action: 'settled',
-      date: new Date().toISOString()
-    })
-    await saveOrders(orders)
-    filterOrders()
+function onEditCartInput(e) {
+  if (!editing) return
+  const input = e.target
+  if (!(input instanceof HTMLInputElement) || input.getAttribute('data-role') !== 'qty') return
+  const id = input.closest('.item')?.getAttribute('data-id')
+  if (!id) return
+  editing = updateItemQty(editing, id, parseQty(input.value))
+  renderEditCart()
+}
+
+function onEditAdd() {
+  if (!editing) return
+  const product = products.find(p => p.id === els.editProductSelect.value)
+  if (!product) return showEditError(t('errorSelectProduct'))
+  editing = addItemByProduct(editing, product, els.editQty.value)
+  els.editQty.value = '1'
+  showEditError('')
+  renderEditCart()
+}
+
+async function saveEdit() {
+  if (!editing) return
+  showEditError('')
+  const customerRes = setCustomer(editing, {
+    lastName: els.editLastName.value,
+    phone: els.editPhone.value
+  })
+  if (!customerRes.ok) return showEditError(t(customerRes.error) || customerRes.error)
+  editing = customerRes.order
+  editing.description = String(els.editNote.value || '').trim()
+  editing.dueDate = String(els.editDueDate.value || '').trim()
+  editing.status = els.editStatus.value || 'registered'
+  editing.deposit = parseMoney(els.editDeposit.value)
+  editing = recomputeOrder(editing)
+  const valid = validateFinalOrder(editing)
+  if (!valid.ok) return showEditError(t(valid.error) || valid.error)
+
+  try {
+    await updateOrder(editing.id, valid.order)
+    showEditOk(t('orderUpdated'))
+    closeEdit()
+    await refresh()
+  } catch (e) {
+    showEditError(e.message)
   }
 }
 
-function updateFilterResults() {
-  const total = orders.length
-  const filtered = filteredOrders.length
-  const isFiltered = total !== filtered
-  
-  if (isFiltered) {
-    els.filterResults.textContent = `${filtered} ${t('of')} ${total} ${t('orders')}`
-  } else {
-    els.filterResults.textContent = `${total} ${t('orders')}`
-  }
-  
-  els.ordersCount.textContent = `${filtered} ${t('orders')}`
-}
-
-function clearFilters() {
-  els.filterSearch.value = ''
-  els.filterPaymentStatus.value = 'all'
-  els.filterDateRange.value = 'all'
-  els.filterSortBy.value = 'newest'
-  els.filterDateFrom.value = ''
-  els.filterDateTo.value = ''
-  els.customDateRange.style.display = 'none'
-  filterOrders()
-}
-
-async function loadOrdersData() {
-  orders = await loadOrders()
-  filteredOrders = orders
-  filterOrders()
+function applyQueryParams() {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('unpaid') === '1' && els.filterUnpaid) els.filterUnpaid.checked = true
+  if (params.get('q') && els.searchQuery) els.searchQuery.value = params.get('q')
+  if (params.get('status') && els.filterStatus) els.filterStatus.value = params.get('status')
 }
 
 async function init() {
-  const { auth } = window.PhotoTools
-  const isValid = await auth.checkAuthToken()
-  if (!isValid) {
-    auth.logout()
-    return
-  }
-  
+  const me = await auth.requireAuth()
+  if (!me) return
   ui.initI18n()
-  auth.initSessionTimeout()
-  
-  await loadOrdersData()
-  
-  // View mode toggle
-  const viewModeButtons = document.querySelectorAll('.view-mode-btn')
-  viewModeButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const viewMode = btn.getAttribute('data-view')
-      currentViewMode = viewMode
-      localStorage.setItem('ordersViewMode', viewMode)
-      renderOrders()
-    })
+  setupSidebar(els, t)
+  fillStatusSelect(els.filterStatus, true)
+  fillStatusSelect(els.editStatus, false)
+  applyQueryParams()
+
+  els.applyFiltersBtn.addEventListener('click', renderList)
+  els.clearFiltersBtn.addEventListener('click', () => {
+    els.searchQuery.value = ''
+    els.filterStatus.value = ''
+    els.filterUnpaid.checked = false
+    els.dateFrom.value = ''
+    els.dateTo.value = ''
+    renderList()
   })
-  
-  // Initialize view mode
-  updateViewModeButtons()
-  
-  // Filter event listeners
-  els.filterSearch.addEventListener('input', filterOrders)
-  els.filterPaymentStatus.addEventListener('change', filterOrders)
-  els.filterDateRange.addEventListener('change', (e) => {
-    if (e.target.value === 'custom') {
-      els.customDateRange.style.display = 'block'
-    } else {
-      els.customDateRange.style.display = 'none'
-      filterOrders()
-    }
+  els.searchQuery.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') renderList()
   })
-  els.filterDateFrom.addEventListener('change', filterOrders)
-  els.filterDateTo.addEventListener('change', filterOrders)
-  els.filterSortBy.addEventListener('change', filterOrders)
-  els.clearFiltersBtn.addEventListener('click', clearFilters)
-  
-  // Sidebar
+  els.ordersList.addEventListener('click', onListClick)
+  els.ordersList.addEventListener('change', onListClick)
+  els.editAddBtn.addEventListener('click', onEditAdd)
+  els.editCartList.addEventListener('click', onEditCartClick)
+  els.editCartList.addEventListener('input', onEditCartInput)
+  els.editDeposit.addEventListener('input', () => {
+    if (!editing) return
+    editing.deposit = parseMoney(els.editDeposit.value)
+    renderEditCart()
+  })
+  els.editSaveBtn.addEventListener('click', saveEdit)
+  els.editCancelBtn.addEventListener('click', closeEdit)
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {
-      const confirmMsg = t('logoutConfirm') || 'Are you sure you want to logout?'
-      if (confirm(confirmMsg)) {
-        const { auth } = window.PhotoTools
-        auth.logout()
-      }
+      if (confirm(t('logoutConfirm'))) auth.logout()
     })
   }
-  
-  if (els.sidebarToggle && els.sidebar) {
-    els.sidebarToggle.addEventListener('click', () => {
-      els.sidebar.classList.toggle('collapsed')
-      const isCollapsed = els.sidebar.classList.contains('collapsed')
-      localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
-    })
-    
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState === 'true') {
-      els.sidebar.classList.add('collapsed')
-    }
-    
-    // Tooltips are updated automatically by initI18n()
+
+  await refresh()
+
+  const focusId = new URLSearchParams(window.location.search).get('id')
+  if (focusId) {
+    const order = orders.find(o => o.id === focusId)
+    if (order) openEdit(order)
   }
 }
 

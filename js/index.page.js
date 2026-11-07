@@ -1,6 +1,12 @@
-const { storage, logic, ui, formatMoneyInput, file } = window.PhotoTools
-const { loadProducts, loadOrders, saveOrders } = storage
-const { downloadJson, readJsonFile } = file
+const { storage, logic, ui, formatMoneyInput, auth } = window.PhotoTools
+const {
+  loadProducts,
+  loadOrders,
+  createOrder,
+  addPayment,
+  sendSms,
+  loadSmsSettings
+} = storage
 const {
   createOrderDraft,
   setCustomer,
@@ -11,10 +17,12 @@ const {
   formatMoney,
   parseMoney,
   parseQty,
-  updateOrder,
-  clone
+  formatDateFa,
+  statusLabel,
+  normalizeIranMobile,
+  isValidIranMobile
 } = logic
-const { $, setText, setHidden, escapeHtml } = ui
+const { $, setText, setHidden, escapeHtml, setupSidebar, printReceipt } = ui
 const t = window.i18n?.t || ((k) => k)
 
 const els = {
@@ -27,6 +35,8 @@ const els = {
 
   lastName: $('#cLastName'),
   phone: $('#cPhone'),
+  orderNote: $('#orderNote'),
+  dueDate: $('#dueDate'),
   customerOk: $('#customerOk'),
   customerError: $('#customerError'),
 
@@ -39,11 +49,12 @@ const els = {
   totalAmount: $('#totalAmount'),
   depositInput: $('#depositInput'),
   remainingAmount: $('#remainingAmount'),
-  descriptionInput: $('#descriptionInput'),
   clearDraftBtn: $('#clearDraftBtn'),
   finalizeBtn: $('#finalizeBtn'),
+  printLastBtn: $('#printLastBtn'),
   finalError: $('#finalError'),
   finalOk: $('#finalOk'),
+  finalWarn: $('#finalWarn'),
 
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
@@ -54,16 +65,14 @@ let products = []
 let orders = []
 let draft = createOrderDraft()
 let customerIsValid = false
-let editingOrderId = null
+let lastSavedOrder = null
 
 async function initData() {
   products = await loadProducts()
   orders = await loadOrders()
   renderProductsSelect()
   renderCart()
-  if (els.searchPhone.value) {
-    onSearchCustomer()
-  }
+  if (els.searchPhone.value) onSearchCustomer()
 }
 
 function showCustomerError(msg) {
@@ -82,12 +91,19 @@ function showFinalError(msg) {
   setText(els.finalError, msg)
   setHidden(els.finalError, !msg)
   setHidden(els.finalOk, true)
+  if (els.finalWarn) setHidden(els.finalWarn, true)
 }
 
 function showFinalOk(msg) {
   setText(els.finalOk, msg)
   setHidden(els.finalOk, !msg)
   setHidden(els.finalError, true)
+}
+
+function showFinalWarn(msg) {
+  if (!els.finalWarn) return
+  setText(els.finalWarn, msg)
+  setHidden(els.finalWarn, !msg)
 }
 
 function canAddToCart() {
@@ -99,44 +115,49 @@ function renderProductsSelect() {
     `<option value=""></option>`,
     ...products
       .slice()
-      .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))
+      .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'fa'))
       .map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
   ].join('')
-
   els.productSelect.innerHTML = options
+}
+
+function syncDraftMeta() {
+  if (els.orderNote) draft.description = String(els.orderNote.value || '').trim()
+  if (els.dueDate) draft.dueDate = String(els.dueDate.value || '').trim()
 }
 
 function renderCart() {
   const items = draft.items ?? []
-
-  const rows = items
-    .map(it => {
-      const total = formatMoney(it.totalPrice)
-      const unit = formatMoney(it.unitPrice)
-      const currency = t('currency')
-      return `
-        <div class="item" data-id="${escapeHtml(it.id)}">
-          <div class="meta">
-            <div class="title">${escapeHtml(it.name)}</div>
-            <div class="sub">${unit} ${currency} ×
-              <input data-role="qty" inputmode="numeric" value="${escapeHtml(it.quantity)}" type="number" min="1" step="1" style="width: 90px; margin: 0 6px" />
-              = ${total} ${currency}
+  const rows = items.map(it => {
+    const total = formatMoney(it.totalPrice)
+    const unit = formatMoney(it.unitPrice)
+    const currency = t('currency')
+    return `
+      <div class="item" data-id="${escapeHtml(it.id)}">
+        <div class="meta">
+          <div class="title">${escapeHtml(it.name)}</div>
+            <div class="sub">
+              <span class="money-ltr">${unit}</span> ${currency} ×
+              <input data-role="qty" inputmode="numeric" value="${escapeHtml(it.quantity)}" type="number" min="1" step="1" class="qty-inline" />
+              = <span class="money-ltr">${total}</span> ${currency}
             </div>
-          </div>
-          <div class="actions">
-            <button class="btn danger" data-action="del" type="button">${t('deleteItem')}</button>
-          </div>
         </div>
-      `
-    })
-    .join('')
+        <div class="actions">
+          <button class="btn danger" data-action="del" type="button">${t('deleteItem')}</button>
+        </div>
+      </div>
+    `
+  }).join('')
 
-  els.cartList.innerHTML = rows
-  
+  els.cartList.innerHTML = rows || `<p class="help">${t('emptyCart')}</p>`
+
   draft = logic.recomputeOrder(draft)
-  
-  setText(els.totalAmount, `${formatMoney(draft.totalAmount)} ${t('currency')}`)
-  setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
+  if (els.totalAmount) {
+    els.totalAmount.innerHTML = `<span class="money-ltr">${formatMoney(draft.totalAmount)}</span> ${t('currency')}`
+  }
+  if (els.remainingAmount) {
+    els.remainingAmount.innerHTML = `<span class="money-ltr">${formatMoney(draft.remainingAmount ?? draft.totalAmount)}</span> ${t('currency')}`
+  }
 
   els.productSelect.disabled = !customerIsValid
   els.qtyInput.disabled = !customerIsValid
@@ -145,9 +166,12 @@ function renderCart() {
   els.depositInput.disabled = !customerIsValid
   els.finalizeBtn.disabled = !customerIsValid
   els.clearDraftBtn.disabled = !customerIsValid
-  
+  if (els.orderNote) els.orderNote.disabled = !customerIsValid
+  if (els.dueDate) els.dueDate.disabled = !customerIsValid
+  if (els.printLastBtn) els.printLastBtn.disabled = !lastSavedOrder
+
   updateItemTotal()
-  
+
   if (!customerIsValid) {
     els.productSelect.value = ''
     els.qtyInput.value = '1'
@@ -159,30 +183,22 @@ function renderCart() {
 function updateItemTotal() {
   const productId = els.productSelect.value
   const qty = parseQty(els.qtyInput.value)
-  
   if (!productId || qty <= 0) {
     els.itemTotalInput.value = ''
     return
   }
-  
   const product = products.find(p => p.id === productId)
   if (!product) {
     els.itemTotalInput.value = ''
     return
   }
-  
-  const total = product.price * qty
-  els.itemTotalInput.value = `${formatMoney(total)} ${t('currency')}`
+  els.itemTotalInput.value = `${formatMoney(product.price * qty)} ${t('currency')}`
 }
 
 function findOrdersByPhone(phone) {
-  const normalized = logic.normalizeIranMobile(phone)
-  if (!logic.isValidIranMobile(normalized)) return []
-  
-  return orders.filter(o => {
-    const orderPhone = logic.normalizeIranMobile(o.customer?.phone ?? '')
-    return orderPhone === normalized
-  })
+  const normalized = normalizeIranMobile(phone)
+  if (!isValidIranMobile(normalized)) return []
+  return orders.filter(o => normalizeIranMobile(o.customer?.phone ?? '') === normalized)
 }
 
 function renderCustomerOrders(customerOrders) {
@@ -190,57 +206,41 @@ function renderCustomerOrders(customerOrders) {
     setHidden(els.customerOrdersContainer, true)
     return
   }
-
   setHidden(els.customerOrdersContainer, false)
-
+  const currency = t('currency')
   const rows = customerOrders
     .slice()
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
     .map(o => {
-      const itemText = (o.items ?? [])
-        .map(it => `${it.name} × ${it.quantity}`)
-        .join(', ')
-      const date = new Date(o.createdAt).toLocaleString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
-      const currency = t('currency')
-      const total = formatMoney(o.totalAmount ?? 0)
-      const deposit = formatMoney(o.deposit ?? 0)
-      const totalAmount = o.totalAmount ?? 0
-      const depositAmount = o.deposit ?? 0
-      const remainingAmount = o.remainingAmount !== undefined ? o.remainingAmount : (totalAmount - depositAmount)
-      const remaining = formatMoney(remainingAmount)
-      const isSettled = remainingAmount <= 0 && totalAmount > 0
-      const actionsHtml = `
-        <div class="actions">
-          <button class="btn" data-action="receipt" type="button">${t('printReceipt')}</button>
-          <button class="btn" data-action="edit" type="button">${t('editOrder')}</button>
-          <button class="btn danger" data-action="delete" type="button">${t('deleteOrder')}</button>
-          ${!isSettled ? `<button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button>` : ''}
-        </div>
-      `
+      const itemText = (o.items ?? []).map(it => `${it.name} × ${it.quantity}`).join(t('listSeparator'))
+      const remainingAmount = o.remainingAmount !== undefined
+        ? o.remainingAmount
+        : ((o.totalAmount || 0) - (o.deposit || 0))
+      const isSettled = remainingAmount <= 0 && (o.totalAmount || 0) > 0
       return `
-        <div class="item" style="margin-bottom: 8px" data-order-id="${escapeHtml(o.id)}">
+        <div class="item" data-order-id="${escapeHtml(o.id)}">
           <div class="meta">
             <div class="title">${escapeHtml(o.customer?.lastName ?? '')}</div>
-            <div class="sub">${escapeHtml(date)}</div>
+            <div class="sub">${escapeHtml(formatDateFa(o.createdAt))} — ${escapeHtml(statusLabel(o.status, t))}</div>
             <div class="sub">${escapeHtml(itemText)}</div>
             <div class="sub" style="margin-top: 4px">
-              <span style="color: var(--accent)">Total: ${total} ${currency}</span>
-              ${(o.deposit ?? 0) > 0 ? `<span style="margin-left: 12px">Deposit: ${deposit} ${currency}</span>` : ''}
+              <span style="color: var(--accent)">${t('totalAmount')}: <span class="money-ltr">${formatMoney(o.totalAmount || 0)}</span> ${currency}</span>
+              ${(o.deposit || 0) > 0 ? `<span style="margin-inline-start: 12px">${t('deposit')}: <span class="money-ltr">${formatMoney(o.deposit || 0)}</span> ${currency}</span>` : ''}
             </div>
-            ${!isSettled ? `<div class="sub" style="color: var(--danger); margin-top: 4px; font-weight: 600">Remaining: ${remaining} ${currency}</div>` : '<div class="sub" style="color: var(--ok); margin-top: 4px">Settled</div>'}
+            <div class="sub order-balance ${isSettled ? 'is-settled' : 'is-remaining'}">
+              ${isSettled
+                ? t('settled')
+                : `${t('remaining')}: <span class="money-ltr">${formatMoney(remainingAmount)}</span> ${currency}`}
+            </div>
           </div>
-          ${actionsHtml}
+          <div class="actions">
+            ${!isSettled ? `<button class="btn primary" data-action="settle" type="button">${t('settlePayment')}</button>` : ''}
+            ${!isSettled ? `<button class="btn" data-action="partial" type="button">${t('partialPayment')}</button>` : ''}
+            <button class="btn" data-action="print" type="button">${t('printReceipt')}</button>
+          </div>
         </div>
       `
-    })
-    .join('')
-
+    }).join('')
   els.customerOrdersList.innerHTML = rows
 }
 
@@ -256,15 +256,14 @@ function onSearchCustomer() {
     return
   }
 
-  const normalized = logic.normalizeIranMobile(phoneInput)
-  if (!logic.isValidIranMobile(normalized)) {
+  const normalized = normalizeIranMobile(phoneInput)
+  if (!isValidIranMobile(normalized)) {
     setText(els.searchError, t('errorPhoneInvalid'))
     setHidden(els.searchError, false)
     return
   }
 
   const foundOrders = findOrdersByPhone(normalized)
-  
   if (foundOrders.length === 0) {
     setText(els.searchOk, t('customerNotFound'))
     setHidden(els.searchOk, false)
@@ -275,15 +274,11 @@ function onSearchCustomer() {
   const customer = foundOrders[0].customer
   els.lastName.value = customer?.lastName ?? ''
   els.phone.value = normalized
-  
   onCustomerChange()
 
-  const count = foundOrders.length
-  const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
-  setText(els.searchOk, msg)
+  setText(els.searchOk, `${foundOrders.length} ${t('ordersFoundPlural')}`)
   setHidden(els.searchOk, false)
   setHidden(els.searchError, true)
-  
   renderCustomerOrders(foundOrders)
 }
 
@@ -297,53 +292,29 @@ function onCustomerChange() {
     customerIsValid = false
     showCustomerError(t(res.error) || res.error)
     showCustomerOk('')
-    
-    els.productSelect.disabled = true
-    els.qtyInput.disabled = true
-    els.itemTotalInput.disabled = true
-    els.addBtn.disabled = true
-    els.depositInput.disabled = true
-    els.clearDraftBtn.disabled = true
-    
     renderCart()
     return
   }
 
   customerIsValid = true
   draft = res.order
+  syncDraftMeta()
   showCustomerError('')
   showCustomerOk(t('customerValid'))
-  
-  els.productSelect.disabled = false
-  els.qtyInput.disabled = false
-  els.itemTotalInput.disabled = false
-  els.addBtn.disabled = false
-  els.depositInput.disabled = false
-  els.clearDraftBtn.disabled = false
-  
   renderCart()
 }
 
 function onAddToCart() {
   showFinalError('')
   showFinalOk('')
-
+  showFinalWarn('')
   if (!canAddToCart()) return
   const productId = els.productSelect.value
   if (!productId) return showFinalError(t('errorSelectProduct'))
-
   const product = products.find(p => p.id === productId)
   if (!product) return showFinalError(t('errorProductNotFound'))
-
-  const qty = parseQty(els.qtyInput.value)
-  if (qty <= 0) {
-    els.qtyInput.value = '1'
-    return showFinalError(t('errorSelectProduct'))
-  }
-  
-  draft = addItemByProduct(draft, product, qty)
+  draft = addItemByProduct(draft, product, els.qtyInput.value)
   els.qtyInput.value = '1'
-  showFinalOk('')
   renderCart()
 }
 
@@ -353,9 +324,7 @@ function onCartClick(e) {
   const row = e.target?.closest('.item')
   const id = row?.getAttribute('data-id')
   if (!id) return
-
-  const action = btn.getAttribute('data-action')
-  if (action === 'del') {
+  if (btn.getAttribute('data-action') === 'del') {
     draft = removeItem(draft, id)
     renderCart()
   }
@@ -365,251 +334,103 @@ function onCartInput(e) {
   const input = e.target
   if (!(input instanceof HTMLInputElement)) return
   if (input.getAttribute('data-role') !== 'qty') return
-
   const row = input.closest('.item')
   const id = row?.getAttribute('data-id')
   if (!id) return
-
   const qty = parseQty(input.value)
-  if (qty <= 0) {
-    input.value = '1'
-    draft = updateItemQty(draft, id, 1)
-  } else {
-    input.value = String(qty)
-    draft = updateItemQty(draft, id, qty)
-  }
+  input.value = String(qty > 0 ? qty : 1)
+  draft = updateItemQty(draft, id, qty > 0 ? qty : 1)
   renderCart()
 }
 
-function clearDraft() {
+function clearDraftKeepSearch() {
+  const searchPhone = els.searchPhone.value
   draft = createOrderDraft()
   customerIsValid = false
-  editingOrderId = null
   els.lastName.value = ''
   els.phone.value = ''
-  els.searchPhone.value = ''
+  if (els.orderNote) els.orderNote.value = ''
+  if (els.dueDate) els.dueDate.value = ''
   els.productSelect.value = ''
   els.qtyInput.value = '1'
   els.itemTotalInput.value = ''
   els.depositInput.value = '0'
-  els.descriptionInput.value = ''
   showCustomerError('')
   showCustomerOk('')
-  showFinalError('')
-  showFinalOk('')
-  setText(els.searchError, '')
-  setText(els.searchOk, '')
-  setHidden(els.customerOrdersContainer, true)
-  
-  els.productSelect.disabled = true
-  els.qtyInput.disabled = true
-  els.itemTotalInput.disabled = true
-  els.addBtn.disabled = true
-  els.depositInput.disabled = true
-  els.clearDraftBtn.disabled = true
-  
+  if (searchPhone) {
+    const found = findOrdersByPhone(searchPhone)
+    if (found.length) renderCustomerOrders(found)
+  } else {
+    setHidden(els.customerOrdersContainer, true)
+  }
   renderCart()
 }
 
-async function sendSms(order) {
+async function trySendSms(order) {
   try {
-    const smsSettings = JSON.parse(localStorage.getItem('smsSettings') || '{}')
-    
-    if (!smsSettings.enabled || !smsSettings.username || !smsSettings.password || !smsSettings.fromNumber) {
-      return { ok: false, error: t('smsNotConfigured') }
+    const settings = await loadSmsSettings()
+    if (!settings.enabled) return { ok: false, skipped: true }
+    if (!settings.username || !settings.passwordSet || !settings.fromNumber) {
+      return { ok: false, skipped: true, error: t('smsNotConfigured') }
     }
-    
-    const messageTemplate = smsSettings.messageTemplate || '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان'
-    
-    let messageContent = messageTemplate
-      .replace(/{lastName}/g, order.customer?.lastName || '')
-      .replace(/{totalAmount}/g, formatMoney(order.totalAmount || 0))
-      .replace(/{deposit}/g, formatMoney(order.deposit || 0))
-      .replace(/{remainingAmount}/g, formatMoney(order.remainingAmount || 0))
-    
-    // استفاده از URL کامل برای اطمینان
-    const apiUrl = window.location.origin + '/api/send-sms'
-    console.log('[SMS] Sending to:', apiUrl)
-    console.log('[SMS] Settings:', {
-      username: smsSettings.username ? '***' : 'missing',
-      password: smsSettings.password ? '***' : 'missing',
-      fromNumber: smsSettings.fromNumber,
+    await sendSms({
       toNumbers: order.customer?.phone || '',
-      messageLength: messageContent.length
+      order: {
+        customer: order.customer,
+        totalAmount: formatMoney(order.totalAmount || 0),
+        deposit: formatMoney(order.deposit || 0),
+        remainingAmount: formatMoney(order.remainingAmount || 0)
+      }
     })
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiType: smsSettings.apiType || 'payamak-vip',
-        userName: smsSettings.username,
-        password: smsSettings.password,
-        fromNumber: smsSettings.fromNumber,
-        toNumbers: order.customer?.phone || '',
-        messageContent: messageContent
-      })
-    })
-    
-    console.log('[SMS] Response status:', response.status, response.statusText)
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMessage = errorData.error || t('smsError')
-      console.error('[SMS] Server error:', errorMessage)
-      return { ok: false, error: errorMessage }
-    }
-    
-    const result = await response.json()
-    
-    // بررسی نتیجه API
-    if (result.response && result.response.Result !== undefined && result.response.Result !== 0) {
-      const apiError = result.response.ErrorMessage || `API Error Code: ${result.response.Result}`
-      console.error('[SMS] API error:', apiError)
-      return { ok: false, error: apiError }
-    }
-    
-    return { ok: true, result }
-  } catch (error) {
-    console.error('SMS Error:', error)
-    return { ok: false, error: t('smsError') }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e.message || t('smsError') }
   }
 }
 
 async function finalizeOrder() {
   showFinalError('')
   showFinalOk('')
-
-  const deposit = parseMoney(els.depositInput.value)
-  draft.deposit = deposit
-  draft.description = String(els.descriptionInput.value ?? '').trim()
+  showFinalWarn('')
+  syncDraftMeta()
+  draft.deposit = parseMoney(els.depositInput.value)
   draft = logic.recomputeOrder(draft)
 
   const res = validateFinalOrder(draft)
   if (!res.ok) return showFinalError(t(res.error) || res.error)
 
-  const isEdit = !!editingOrderId
-  if (isEdit) {
-    const existing = orders.find(o => o.id === editingOrderId)
-    if (existing) {
-      const updateResult = updateOrder(existing, { ...res.order, id: existing.id })
-      if (!updateResult.ok) return showFinalError(t(updateResult.error) || updateResult.error)
-      const updatedOrder = updateResult.order
-      orders = orders.map(o => (o.id === existing.id ? updatedOrder : o))
-    } else {
-      orders = [res.order, ...orders]
+  try {
+    const saved = await createOrder(res.order)
+    lastSavedOrder = saved
+    orders = await loadOrders()
+    showFinalOk(t('orderSaved'))
+    if (els.printLastBtn) els.printLastBtn.disabled = false
+
+    const smsResult = await trySendSms(saved)
+    if (smsResult.ok) {
+      showFinalOk(`${t('orderSaved')} — ${t('smsSent')}`)
+    } else if (!smsResult.skipped) {
+      showFinalWarn(`${t('smsWarning')}: ${smsResult.error || t('smsError')}`)
     }
-  } else {
-    orders = [res.order, ...orders]
-  }
-  await saveOrders(orders)
 
-  const foundOrders = findOrdersByPhone(res.order.customer.phone)
-  renderCustomerOrders(foundOrders)
-  const count = foundOrders.length
-  const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
-  setText(els.searchOk, msg)
-  setHidden(els.searchOk, false)
-
-  showFinalOk(t('orderSaved'))
-  
-  // ارسال SMS
-  const smsResult = await sendSms(res.order)
-  if (smsResult.ok) {
-    showFinalOk(`${t('orderSaved')} - ${t('smsSent')}`)
-  } else {
-    // نمایش خطا به کاربر
-    const errorMsg = smsResult.error || t('smsError')
-    if (smsResult.error !== t('smsNotConfigured')) {
-      // نمایش خطا در پیام نهایی
-      showFinalError(`${t('orderSaved')} - SMS Error: ${errorMsg}`)
-      console.warn('SMS Error:', errorMsg)
+    const phone = saved.customer?.phone
+    clearDraftKeepSearch()
+    if (phone) {
+      els.searchPhone.value = phone
+      const found = findOrdersByPhone(phone)
+      setText(els.searchOk, `${found.length} ${t('ordersFoundPlural')}`)
+      setHidden(els.searchOk, false)
+      renderCustomerOrders(found)
     }
+  } catch (e) {
+    showFinalError(e.message || t('smsError'))
   }
-  
-  draft = createOrderDraft()
-  customerIsValid = false
-  editingOrderId = null
-  els.productSelect.value = ''
-  els.qtyInput.value = '1'
-  els.itemTotalInput.value = ''
-  els.depositInput.value = '0'
-  els.descriptionInput.value = ''
-  showCustomerError('')
-  showCustomerOk('')
-  showFinalError('')
-  renderCart()
-}
-
-function escapeCsvCell(v) {
-  const s = String(v ?? '')
-  const needs = /[",\n\r]/.test(s)
-  const escaped = s.replaceAll('"', '""')
-  return needs ? `"${escaped}"` : escaped
-}
-
-function ordersToCsv(list) {
-  const header = [
-    'id',
-    'date',
-    'lastName',
-    'phone',
-    'totalAmount',
-    'items'
-  ]
-
-  const rows = list.map(o => {
-    const items = (o.items ?? []).map(it => ({ name: it.name, quantity: it.quantity, unitPrice: it.unitPrice }))
-    return [
-      o.id,
-      o.createdAt,
-      o.customer?.lastName,
-      o.customer?.phone,
-      o.totalAmount,
-      JSON.stringify(items)
-    ].map(escapeCsvCell).join(',')
-  })
-
-  return [header.join(','), ...rows].join('\n')
-}
-
-function downloadTextFile(filename, content) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
-}
-
-function exportCsv() {
-  if (orders.length === 0) return alert('سفارشی برای خروجی وجود ندارد')
-  const csv = ordersToCsv(orders)
-  const date = new Date().toISOString().slice(0, 10)
-  downloadTextFile(`orders_${date}.csv`, csv)
-}
-
-async function clearOrders() {
-  const ok = confirm('همه سفارش‌ها پاک شوند؟')
-  if (!ok) return
-  orders = []
-  await saveOrders(orders)
-}
-
-async function refreshProducts() {
-  products = await loadProducts()
-  renderProductsSelect()
-  renderCart()
 }
 
 function formatPriceInput(input) {
   const cursorPos = input.selectionStart
   const oldValue = input.value
   const formatted = formatMoneyInput(input.value)
-  
   if (formatted !== oldValue) {
     input.value = formatted
     const diff = formatted.length - oldValue.length
@@ -619,11 +440,11 @@ function formatPriceInput(input) {
 }
 
 function onDepositChange() {
-  const depositValue = els.depositInput.value
-  const deposit = parseMoney(depositValue)
-  draft.deposit = deposit
+  draft.deposit = parseMoney(els.depositInput.value)
   draft = logic.recomputeOrder(draft)
-  setText(els.remainingAmount, `${formatMoney(draft.remainingAmount ?? draft.totalAmount)} ${t('currency')}`)
+  if (els.remainingAmount) {
+    els.remainingAmount.innerHTML = `<span class="money-ltr">${formatMoney(draft.remainingAmount ?? draft.totalAmount)}</span> ${t('currency')}`
+  }
 }
 
 async function onCustomerOrdersClick(e) {
@@ -632,93 +453,56 @@ async function onCustomerOrdersClick(e) {
   const row = e.target?.closest('.item')
   const orderId = row?.getAttribute('data-order-id')
   if (!orderId) return
-
+  const order = orders.find(o => o.id === orderId)
+  if (!order) return
   const action = btn.getAttribute('data-action')
-  if (action === 'settle') {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-    
-    order.deposit = order.totalAmount
-    order.remainingAmount = 0
-    await saveOrders(orders)
-    
-    const foundOrders = findOrdersByPhone(order.customer.phone)
-    renderCustomerOrders(foundOrders)
-  }
-  if (action === 'receipt') {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-    const url = `./receipt.html?orderId=${encodeURIComponent(order.id)}`
-    window.open(url, '_blank')
-  }
-  if (action === 'edit') {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-    const copy = clone ? clone(order) : JSON.parse(JSON.stringify(order))
-    draft = logic.recomputeOrder(copy)
-    editingOrderId = order.id
-    customerIsValid = true
-    els.lastName.value = order.customer?.lastName ?? ''
-    els.phone.value = order.customer?.phone ?? ''
-    els.depositInput.value = formatMoneyInput(order.deposit ?? 0)
-    els.descriptionInput.value = order.description ?? ''
-    showCustomerError('')
-    showCustomerOk(t('editingOrder') || 'Editing order')
-    renderCart()
-  }
-  if (action === 'delete') {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-    const confirmMsg = t('confirmDeleteOrder') || 'Delete this order?'
-    const ok = confirm(confirmMsg)
-    if (!ok) return
-    orders = orders.filter(o => o.id !== orderId)
-    await saveOrders(orders)
-    if (editingOrderId === orderId) {
-      clearDraft()
+
+  try {
+    if (action === 'print') {
+      printReceipt(order, t)
+      return
     }
-    const foundOrders = findOrdersByPhone(order.customer.phone)
-    renderCustomerOrders(foundOrders)
-    const count = foundOrders.length
-    const msg = count === 1 ? `${count} ${t('ordersFound')}` : `${count} ${t('ordersFoundPlural')}`
-    setText(els.searchOk, msg)
-    setHidden(els.searchOk, false)
-    setHidden(els.searchError, true)
+    if (action === 'settle') {
+      if (!confirm(t('confirmSettleAll'))) return
+      const amount = order.remainingAmount || 0
+      if (amount <= 0) return
+      await addPayment(orderId, amount, t('settlePayment'))
+      orders = await loadOrders()
+      renderCustomerOrders(findOrdersByPhone(order.customer.phone))
+      return
+    }
+    if (action === 'partial') {
+      const raw = prompt(t('paymentAmount'), String(order.remainingAmount || 0))
+      if (raw === null) return
+      const amount = parseMoney(raw)
+      if (amount <= 0 || amount > (order.remainingAmount || 0)) {
+        alert(t('errorPaymentAmount'))
+        return
+      }
+      await addPayment(orderId, amount, t('partialPayment'))
+      orders = await loadOrders()
+      renderCustomerOrders(findOrdersByPhone(order.customer.phone))
+    }
+  } catch (err) {
+    alert(err.message || t('smsError'))
   }
 }
 
-
 async function init() {
-  // Wait for PhotoTools to be available
-  if (!window.PhotoTools || !window.PhotoTools.auth) {
-    console.error('[AUTH] PhotoTools not loaded, retrying...')
-    setTimeout(init, 100)
-    return
-  }
-  
-  // Check authentication
-  const { auth } = window.PhotoTools
-  console.log('[AUTH] Checking token...')
-  const isValid = await auth.checkAuthToken()
-  console.log('[AUTH] Token check result:', isValid)
-  if (!isValid) {
-    console.log('[AUTH] Token invalid, logging out...')
-    auth.logout()
-    return
-  }
-  
-  console.log('[AUTH] Authentication successful, loading page...')
-  
+  const me = await auth.requireAuth()
+  if (!me) return
+
   ui.initI18n()
-  auth.initSessionTimeout()
-  
+  setupSidebar(els, t)
+
   els.searchBtn.addEventListener('click', onSearchCustomer)
   els.searchPhone.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') onSearchCustomer()
   })
-
   els.lastName.addEventListener('input', onCustomerChange)
   els.phone.addEventListener('input', onCustomerChange)
+  if (els.orderNote) els.orderNote.addEventListener('input', syncDraftMeta)
+  if (els.dueDate) els.dueDate.addEventListener('change', syncDraftMeta)
   els.productSelect.addEventListener('change', updateItemTotal)
   els.qtyInput.addEventListener('input', updateItemTotal)
   els.depositInput.addEventListener('input', (e) => {
@@ -729,53 +513,33 @@ async function init() {
     els.depositInput.value = formatMoneyInput(els.depositInput.value)
     onDepositChange()
   })
-  if (els.descriptionInput) {
-    els.descriptionInput.addEventListener('input', () => {
-      draft.description = String(els.descriptionInput.value ?? '').trim()
-    })
-  }
   els.addBtn.addEventListener('click', onAddToCart)
   els.cartList.addEventListener('click', onCartClick)
   els.cartList.addEventListener('input', onCartInput)
-  els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
-  els.clearDraftBtn.addEventListener('click', clearDraft)
+  els.clearDraftBtn.addEventListener('click', () => {
+    els.searchPhone.value = ''
+    setText(els.searchError, '')
+    setText(els.searchOk, '')
+    setHidden(els.customerOrdersContainer, true)
+    showFinalError('')
+    showFinalOk('')
+    showFinalWarn('')
+    clearDraftKeepSearch()
+  })
   els.finalizeBtn.addEventListener('click', finalizeOrder)
-  
+  if (els.printLastBtn) {
+    els.printLastBtn.addEventListener('click', () => {
+      if (lastSavedOrder) printReceipt(lastSavedOrder, t)
+    })
+  }
+  els.customerOrdersList.addEventListener('click', onCustomerOrdersClick)
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {
-      const { auth } = window.PhotoTools
-      const confirmMsg = t('logoutConfirm') || 'Are you sure you want to logout?'
-      if (confirm(confirmMsg)) {
-        auth.logout()
-      }
+      if (confirm(t('logoutConfirm'))) auth.logout()
     })
   }
-  
-  if (els.sidebarToggle && els.sidebar) {
-    els.sidebarToggle.addEventListener('click', () => {
-      els.sidebar.classList.toggle('collapsed')
-      const isCollapsed = els.sidebar.classList.contains('collapsed')
-      localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
-    })
-    
-    const savedState = localStorage.getItem('sidebarCollapsed')
-    if (savedState === 'true') {
-      els.sidebar.classList.add('collapsed')
-    }
-    
-    // Tooltips are updated automatically by initI18n()
-  }
-
-  els.productSelect.disabled = true
-  els.qtyInput.disabled = true
-  els.itemTotalInput.disabled = true
-  els.addBtn.disabled = true
-  els.depositInput.disabled = true
-  els.clearDraftBtn.disabled = true
 
   await initData()
-
-  window.addEventListener('focus', refreshProducts)
 }
 
 if (document.readyState === 'loading') {
@@ -783,5 +547,3 @@ if (document.readyState === 'loading') {
 } else {
   init()
 }
-
-

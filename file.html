@@ -1,18 +1,9 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="navFile">File</title>
-    <script>
-      (function() {
-        const savedTheme = localStorage.getItem('theme') || 'light'
-        const savedLanguage = localStorage.getItem('language') || 'en'
-        document.documentElement.setAttribute('data-theme', savedTheme)
-        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
-        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
-      })()
-    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -21,13 +12,25 @@
         <div class="brand">
           <h1 data-i18n="navFile"></h1>
         </div>
+        <div class="topbar-actions">
+          <label class="visually-hidden" for="topLangSelect" data-i18n="language">Language</label>
+          <select id="topLangSelect" class="lang-select" aria-label="Language">
+            <option value="fa">فارسی</option>
+            <option value="en">English</option>
+          </select>
+        </div>
       </div>
 
       <div class="main-layout">
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-logo">
-              <span class="sidebar-logo-text" data-i18n="navFile"></span>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="32" rx="8" fill="var(--accent)"/>
+                <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
+                <path d="M10 22H22V24H10V22Z" fill="white"/>
+              </svg>
+              <span class="sidebar-logo-text" data-i18n="appName"></span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,15 +53,15 @@
                 <path d="M10 3.33333V16.6667M3.33333 10H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 <circle cx="10" cy="10" r="6.66667" stroke="currentColor" stroke-width="1.5"/>
               </svg>
-              <span class="sidebar-text" data-i18n="orderTitle"></span>
+              <span class="sidebar-text" data-i18n="navNewOrder"></span>
             </a>
             <a class="sidebar-item" href="./orders.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.33333 5H16.6667M3.33333 10H16.6667M3.33333 15H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M5 5H15V15H5V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 5H16M4 10H16M4 15H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
               <span class="sidebar-text" data-i18n="navOrders"></span>
             </a>
+
             <a class="sidebar-item" href="./products.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3.33333 5H16.6667M3.33333 10H16.6667M3.33333 15H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -103,12 +106,19 @@
           <div class="card">
             <h2 data-i18n="exportOrders"></h2>
             <p class="help" data-i18n="exportOrdersHelp"></p>
-            <button class="btn primary" id="exportOrdersBtn" type="button" data-i18n="exportOrders"></button>
-            <button class="btn" id="exportOrdersExcelBtn" type="button" style="margin-top: 8px" data-i18n="exportOrdersExcel"></button>
+            <div class="split">
+              <button class="btn primary" id="exportOrdersBtn" type="button" data-i18n="exportOrders"></button>
+              <button class="btn" id="exportOrdersCsvBtn" type="button" data-i18n="exportOrdersCsv"></button>
+            </div>
             <div class="error" id="exportOrdersError" style="display: none"></div>
             <div class="ok" id="exportOrdersOk" style="display: none"></div>
-            <div class="error" id="exportOrdersExcelError" style="display: none"></div>
-            <div class="ok" id="exportOrdersExcelOk" style="display: none"></div>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="backupNow"></h2>
+            <button class="btn primary" id="backupNowBtn" type="button" data-i18n="backupNow"></button>
+            <div class="error" id="backupError" style="display: none"></div>
+            <div class="ok" id="backupOk" style="display: none"></div>
           </div>
 
           <div class="card">

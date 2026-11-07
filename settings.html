@@ -1,18 +1,9 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="fa" dir="rtl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="pageSettings">Settings</title>
-    <script>
-      (function() {
-        const savedTheme = localStorage.getItem('theme') || 'light'
-        const savedLanguage = localStorage.getItem('language') || 'en'
-        document.documentElement.setAttribute('data-theme', savedTheme)
-        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
-        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
-      })()
-    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -21,13 +12,25 @@
         <div class="brand">
           <h1 data-i18n="settingsTitle"></h1>
         </div>
+        <div class="topbar-actions">
+          <label class="visually-hidden" for="topLangSelect" data-i18n="language">Language</label>
+          <select id="topLangSelect" class="lang-select" aria-label="Language">
+            <option value="fa">فارسی</option>
+            <option value="en">English</option>
+          </select>
+        </div>
       </div>
 
       <div class="main-layout">
         <aside class="sidebar" id="sidebar">
           <div class="sidebar-header">
             <div class="sidebar-logo">
-              <span class="sidebar-logo-text" data-i18n="settingsTitle"></span>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="32" rx="8" fill="var(--accent)"/>
+                <path d="M16 10L12 14H14V20H18V14H20L16 10Z" fill="white"/>
+                <path d="M10 22H22V24H10V22Z" fill="white"/>
+              </svg>
+              <span class="sidebar-logo-text" data-i18n="appName"></span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,15 +53,15 @@
                 <path d="M10 3.33333V16.6667M3.33333 10H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 <circle cx="10" cy="10" r="6.66667" stroke="currentColor" stroke-width="1.5"/>
               </svg>
-              <span class="sidebar-text" data-i18n="orderTitle"></span>
+              <span class="sidebar-text" data-i18n="navNewOrder"></span>
             </a>
             <a class="sidebar-item" href="./orders.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.33333 5H16.6667M3.33333 10H16.6667M3.33333 15H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <path d="M5 5H15V15H5V5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M4 5H16M4 10H16M4 15H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
               </svg>
               <span class="sidebar-text" data-i18n="navOrders"></span>
             </a>
+
             <a class="sidebar-item" href="./products.html" data-tooltip="">
               <svg class="sidebar-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3.33333 5H16.6667M3.33333 10H16.6667M3.33333 15H16.6667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -109,256 +112,20 @@
                 <select id="themeSelect">
                   <option value="light" data-i18n="lightMode"></option>
                   <option value="dark" data-i18n="darkMode"></option>
-                  <option value="gray" data-i18n="grayMode"></option>
                 </select>
               </label>
               <p class="help" data-i18n="colorModeHelp"></p>
             </div>
-          </div>
 
-          <div class="card">
-            <h2 data-i18n="receiptSettings"></h2>
-
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="receiptLayoutSettings"></h3>
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="receiptSize"></span>
-                  <select id="receiptSize">
-                    <option value="a4" data-i18n="receiptSizeA4"></option>
-                    <option value="a5" data-i18n="receiptSizeA5"></option>
-                    <option value="80mm" data-i18n="receiptSize80mm"></option>
-                    <option value="58mm" data-i18n="receiptSize58mm"></option>
-                    <option value="business-card" data-i18n="receiptSizeBusinessCard"></option>
-                  </select>
-                </label>
-                <p class="help" data-i18n="receiptSizeHelp"></p>
-              </div>
-            </div>
-
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="receiptTypographySettings"></h3>
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="receiptFontSize"></span>
-                  <select id="receiptFontSizePreset">
-                    <option value="small" data-i18n="receiptFontSmall"></option>
-                    <option value="medium" data-i18n="receiptFontMedium"></option>
-                    <option value="large" data-i18n="receiptFontLarge"></option>
-                  </select>
-                </label>
-                <p class="help" data-i18n="receiptFontSizeHelp"></p>
-              </div>
-
-              <div class="settings-section">
-                <div class="row row-2">
-                  <label class="settings-label">
-                    <span data-i18n="receiptTitleWeight"></span>
-                    <select id="receiptTitleWeight">
-                      <option value="500">500</option>
-                      <option value="600">600</option>
-                      <option value="700">700</option>
-                      <option value="800">800</option>
-                    </select>
-                  </label>
-                  <label class="settings-label">
-                    <span data-i18n="receiptPriceWeight"></span>
-                    <select id="receiptPriceWeight">
-                      <option value="500">500</option>
-                      <option value="600">600</option>
-                      <option value="700">700</option>
-                      <option value="800">800</option>
-                    </select>
-                  </label>
-                </div>
-                <p class="help" data-i18n="receiptFontWeightHelp"></p>
-              </div>
-            </div>
-
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="receiptColorSettings"></h3>
-              <div class="settings-section">
-                <div class="row row-2">
-                  <label class="settings-label">
-                    <span data-i18n="receiptBgColor"></span>
-                    <input id="receiptBgColor" type="color" />
-                  </label>
-                  <label class="settings-label">
-                    <span data-i18n="receiptCardBgColor"></span>
-                    <input id="receiptCardBgColor" type="color" />
-                  </label>
-                </div>
-                <div class="row row-2 mt-sm">
-                  <label class="settings-label">
-                    <span data-i18n="receiptBorderColor"></span>
-                    <input id="receiptBorderColor" type="color" />
-                  </label>
-                </div>
-                <p class="help" data-i18n="receiptColorHelp"></p>
-              </div>
-            </div>
-
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="receiptLivePreview"></h3>
-              <div id="receiptPreviewContainer" class="receipt-preview-container">
-                <div class="receipt-preview-wrapper">
-                  <div class="card receipt-card" id="receiptPreviewCard">
-                    <div class="receipt-header">
-                      <div class="receipt-brand" data-i18n="appName"></div>
-                      <div class="receipt-meta">
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="receiptOrderId"></span>
-                          <span class="value" id="previewOrderId">preview_001</span>
-                        </div>
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="receiptDate"></span>
-                          <span class="value" id="previewDate"></span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="receipt-section">
-                      <h2 data-i18n="customerInfo"></h2>
-                      <div class="receipt-grid">
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="customerLastName"></span>
-                          <span class="value" id="previewCustomerName">مشتری نمونه</span>
-                        </div>
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="customerPhone"></span>
-                          <span class="value" id="previewPhone">09120000000</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="receipt-section">
-                      <h2 data-i18n="receiptItems"></h2>
-                      <div class="receipt-items" id="previewItemsList"></div>
-                    </div>
-
-                    <div class="receipt-section">
-                      <h2 data-i18n="receiptSummary"></h2>
-                      <div class="receipt-summary">
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="totalAmount"></span>
-                          <span class="value" id="previewTotal">350,000 تومان</span>
-                        </div>
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="deposit"></span>
-                          <span class="value" id="previewDeposit">100,000 تومان</span>
-                        </div>
-                        <div class="receipt-row">
-                          <span class="label" data-i18n="remainingAmount"></span>
-                          <span class="value" id="previewRemaining">250,000 تومان</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="receipt-footer">
-                      <div class="help" data-i18n="receiptThanks"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2 data-i18n="languageSettings"></h2>
-            
             <div class="settings-section">
               <label class="settings-label">
                 <span data-i18n="language"></span>
-                <select id="languageSelect">
-                  <option value="en" data-i18n="languageEnglish"></option>
-                  <option value="fa" data-i18n="languagePersian"></option>
+                <select id="langSelect" class="lang-select">
+                  <option value="fa" data-i18n="langFa">فارسی</option>
+                  <option value="en" data-i18n="langEn">English</option>
                 </select>
               </label>
               <p class="help" data-i18n="languageHelp"></p>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2 data-i18n="currencySettings"></h2>
-            
-            <div class="settings-section">
-              <label class="settings-label">
-                <span data-i18n="currency"></span>
-                <select id="currencySelect">
-                  <option value="toman" data-i18n="currencyToman"></option>
-                  <option value="dollar" data-i18n="currencyDollar"></option>
-                  <option value="euro" data-i18n="currencyEuro"></option>
-                </select>
-              </label>
-              <p class="help" data-i18n="currencyHelp"></p>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2 data-i18n="securitySettings"></h2>
-            
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="changeUsernameTitle"></h3>
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="currentUsername"></span>
-                  <input id="currentUsername" type="text" readonly disabled />
-                </label>
-                <p class="help" data-i18n="currentUsernameHelp"></p>
-              </div>
-              
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="newUsername"></span>
-                  <input id="newUsername" type="text" placeholder="" />
-                </label>
-                <p class="help" data-i18n="newUsernameHelp"></p>
-              </div>
-              
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="passwordForUsername"></span>
-                  <input id="passwordForUsername" type="password" placeholder="" />
-                </label>
-                <p class="help" data-i18n="passwordForUsernameHelp"></p>
-              </div>
-              
-              <div class="settings-section">
-                <button class="btn primary" id="changeUsernameBtn" type="button" data-i18n="changeUsername"></button>
-                <div class="error" id="changeUsernameError" style="display: none; margin-top: 8px"></div>
-                <div class="success" id="changeUsernameSuccess" style="display: none; margin-top: 8px"></div>
-              </div>
-            </div>
-            
-            <div class="settings-group">
-              <h3 class="settings-group-title" data-i18n="changePasswordTitle"></h3>
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="currentPassword"></span>
-                  <input id="currentPassword" type="password" placeholder="" />
-                </label>
-              </div>
-              
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="newPassword"></span>
-                  <input id="newPassword" type="password" placeholder="" />
-                </label>
-              </div>
-              
-              <div class="settings-section">
-                <label class="settings-label">
-                  <span data-i18n="confirmNewPassword"></span>
-                  <input id="confirmNewPassword" type="password" placeholder="" />
-                </label>
-                <p class="help" data-i18n="changePasswordHelp"></p>
-              </div>
-              
-              <div class="settings-section">
-                <button class="btn primary" id="changePasswordBtn" type="button" data-i18n="changePassword"></button>
-                <div class="error" id="changePasswordError" style="display: none; margin-top: 8px"></div>
-                <div class="success" id="changePasswordSuccess" style="display: none; margin-top: 8px"></div>
-              </div>
             </div>
           </div>
 
@@ -403,7 +170,7 @@
             <div class="settings-section">
               <label class="settings-label">
                 <span data-i18n="smsMessageTemplate"></span>
-                <textarea id="smsMessageTemplate" rows="4" placeholder="{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان"></textarea>
+                <textarea id="smsMessageTemplate" rows="4" data-i18n-placeholder="smsDefaultTemplate"></textarea>
               </label>
               <p class="help" data-i18n="smsMessageTemplateHelp"></p>
             </div>
@@ -415,6 +182,14 @@
               </label>
               <p class="help" data-i18n="smsEnabledHelp"></p>
             </div>
+
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="smsTestPhone"></span>
+                <input id="smsTestPhone" type="text" inputmode="tel" />
+              </label>
+              <button class="btn mt-sm" id="smsTestBtn" type="button" data-i18n="smsTest"></button>
+            </div>
             
             <div class="split mt-lg">
               <button class="btn primary" id="saveSettingsBtn" type="button" data-i18n="saveSettings"></button>
@@ -425,11 +200,30 @@
           </div>
 
           <div class="card">
-            <h2 data-i18n="otherSettings"></h2>
-            
+            <h2 data-i18n="passwordSettings"></h2>
+            <div class="error" id="mustChangeBanner" style="display: none" data-i18n="mustChangePassword"></div>
             <div class="settings-section">
-              <p class="help" data-i18n="settingsNote"></p>
+              <label class="settings-label">
+                <span data-i18n="currentPassword"></span>
+                <input id="currentPassword" type="password" autocomplete="current-password" />
+              </label>
             </div>
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="newPassword"></span>
+                <input id="newPassword" type="password" autocomplete="new-password" />
+              </label>
+            </div>
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="confirmPassword"></span>
+                <input id="confirmPassword" type="password" autocomplete="new-password" />
+              </label>
+            </div>
+            <button class="btn primary" id="changePasswordBtn" type="button" data-i18n="changePassword"></button>
+            <div class="error" id="passwordError" style="display: none"></div>
+            <div class="ok" id="passwordOk" style="display: none"></div>
+            <p class="help mt-md" data-i18n="settingsNote"></p>
           </div>
         </div>
       </div>

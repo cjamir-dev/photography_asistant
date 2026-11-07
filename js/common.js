@@ -1,8 +1,5 @@
 (function () {
-  const KEYS = {
-    products: 'photo_tools_products_v1',
-    orders: 'photo_tools_orders_v1'
-  }
+  const ORDER_STATUSES = ['registered', 'printing', 'ready', 'delivered', 'cancelled']
 
   function nowIso() {
     return new Date().toISOString()
@@ -23,171 +20,165 @@
     }
   }
 
-  function getAuthHeaders() {
-    const token = localStorage.getItem('authToken')
-    const headers = { 'Content-Type': 'application/json' }
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-    return headers
+  function translateApiError(codeOrMessage) {
+    const raw = String(codeOrMessage || '').trim()
+    if (!raw) return window.i18n?.t?.('errorServer') || 'Server error'
+    const translated = window.i18n?.t?.(raw)
+    if (translated && translated !== raw) return translated
+    return raw
   }
 
-  async function checkAuthToken() {
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-      console.log('[AUTH] No token found')
-      return false
+  async function api(path, options = {}) {
+    const opts = {
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      ...options
     }
-    
-    try {
-      const response = await fetch('/api/auth/verify', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      console.log('[AUTH] Verify response:', { status: response.status, ok: response.ok })
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[AUTH] Verify data:', data)
-        return data.valid === true
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.log('[AUTH] Verify failed:', errorData)
+    if (opts.body && typeof opts.body !== 'string') {
+      opts.body = JSON.stringify(opts.body)
+    }
+    const response = await fetch(path, opts)
+    let data = null
+    const text = await response.text()
+    if (text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = { error: text }
       }
-    } catch (e) {
-      console.error('[AUTH] Verify error:', e)
     }
-    
-    return false
+    if (response.status === 401 && !path.includes('/api/login') && !path.includes('/api/me')) {
+      if (!window.location.pathname.endsWith('login.html')) {
+        window.location.href = './login.html'
+      }
+      const err = new Error(translateApiError((data && data.error) || 'unauthorized'))
+      err.status = 401
+      err.code = data?.error || 'unauthorized'
+      throw err
+    }
+    if (!response.ok) {
+      const err = new Error(translateApiError((data && data.error) || 'errorServer'))
+      err.status = response.status
+      err.code = data?.error || 'errorServer'
+      err.data = data
+      throw err
+    }
+    return data
   }
 
-  function logout() {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('username')
-    localStorage.removeItem('isAuthenticated') // برای backward compatibility
+  async function checkAuth() {
+    try {
+      const me = await api('/api/me')
+      return me
+    } catch {
+      return { authenticated: false }
+    }
+  }
+
+  async function requireAuth(options = {}) {
+    const me = await checkAuth()
+    if (!me.authenticated) {
+      window.location.href = './login.html'
+      return null
+    }
+    const onSettings = window.location.pathname.endsWith('settings.html')
+    if (me.mustChangePassword && !options.allowMustChange && !onSettings) {
+      window.location.href = './settings.html'
+      return null
+    }
+    return me
+  }
+
+  async function login(username, password) {
+    return api('/api/login', {
+      method: 'POST',
+      body: { username, password }
+    })
+  }
+
+  async function logout() {
+    try {
+      await api('/api/logout', { method: 'POST', body: {} })
+    } catch {
+      // ignore
+    }
     window.location.href = './login.html'
   }
 
-  function initSessionTimeout() {
-    // Check session validity every 5 minutes
-    setInterval(async () => {
-      const token = localStorage.getItem('authToken')
-      if (!token) return
-      
-      const isValid = await checkAuthToken()
-      if (!isValid) {
-        logout()
-      }
-    }, 5 * 60 * 1000) // 5 minutes
-    
-    // Also check on page visibility change
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        const token = localStorage.getItem('authToken')
-        if (!token) return
-        
-        const isValid = await checkAuthToken()
-        if (!isValid) {
-          logout()
-        }
-      }
+  async function changePassword(currentPassword, newPassword) {
+    return api('/api/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword }
     })
   }
 
   async function loadProducts() {
-    try {
-      const response = await fetch('/api/products', {
-        headers: getAuthHeaders()
-      })
-      if (response.ok) {
-        const data = await response.json()
-        return Array.isArray(data) ? data : []
-      } else if (response.status === 401) {
-        // Unauthorized - redirect to login
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
-        return []
-      }
-    } catch (e) {
-      console.warn('Failed to load products from server, using localStorage fallback')
-    }
-    const raw = localStorage.getItem(KEYS.products)
-    const list = safeJsonParse(raw, [])
-    return Array.isArray(list) ? list : []
+    const data = await api('/api/products')
+    return Array.isArray(data) ? data : []
   }
 
-  async function saveProducts(products) {
-    try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(products ?? [])
-      })
-      if (response.ok) {
-        localStorage.setItem(KEYS.products, JSON.stringify(products ?? []))
-        return
-      } else if (response.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
-        return
-      }
-    } catch (e) {
-      console.warn('Failed to save products to server, using localStorage fallback')
-    }
-    localStorage.setItem(KEYS.products, JSON.stringify(products ?? []))
+  async function createProductApi(product) {
+    return api('/api/products', { method: 'POST', body: product })
+  }
+
+  async function updateProductApi(id, product) {
+    return api(`/api/products/${encodeURIComponent(id)}`, { method: 'PUT', body: product })
+  }
+
+  async function deleteProductApi(id) {
+    return api(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async function replaceProducts(products) {
+    return api('/api/products', { method: 'POST', body: products })
   }
 
   async function loadOrders() {
-    try {
-      const response = await fetch('/api/orders', {
-        headers: getAuthHeaders()
-      })
-      if (response.ok) {
-        const data = await response.json()
-        return Array.isArray(data) ? data : []
-      } else if (response.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
-        return []
-      }
-    } catch (e) {
-      console.warn('Failed to load orders from server, using localStorage fallback')
-    }
-    const raw = localStorage.getItem(KEYS.orders)
-    const list = safeJsonParse(raw, [])
-    return Array.isArray(list) ? list : []
+    const data = await api('/api/orders')
+    return Array.isArray(data) ? data.map(normalizeOrder) : []
   }
 
-  async function saveOrders(orders) {
-    try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(orders ?? [])
-      })
-      if (response.ok) {
-        localStorage.setItem(KEYS.orders, JSON.stringify(orders ?? []))
-        return
-      } else if (response.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('username')
-        window.location.href = './login.html'
-        return
-      }
-    } catch (e) {
-      console.warn('Failed to save orders to server, using localStorage fallback')
-    }
-    localStorage.setItem(KEYS.orders, JSON.stringify(orders ?? []))
+  async function createOrderApi(order) {
+    return api('/api/orders', { method: 'POST', body: order })
   }
 
-  function clearAll() {
-    localStorage.removeItem(KEYS.products)
-    localStorage.removeItem(KEYS.orders)
+  async function updateOrderApi(id, order) {
+    return api(`/api/orders/${encodeURIComponent(id)}`, { method: 'PUT', body: order })
+  }
+
+  async function patchOrderApi(id, patch) {
+    return api(`/api/orders/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch })
+  }
+
+  async function deleteOrderApi(id) {
+    return api(`/api/orders/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async function addPaymentApi(id, amount, note) {
+    return api(`/api/orders/${encodeURIComponent(id)}/payments`, {
+      method: 'POST',
+      body: { amount, note: note || '' }
+    })
+  }
+
+  async function replaceOrders(orders) {
+    return api('/api/orders', { method: 'POST', body: orders })
+  }
+
+  async function loadSmsSettings() {
+    return api('/api/sms-settings')
+  }
+
+  async function saveSmsSettings(settings) {
+    return api('/api/sms-settings', { method: 'POST', body: settings })
+  }
+
+  async function sendSmsApi(payload) {
+    return api('/api/send-sms', { method: 'POST', body: payload })
+  }
+
+  async function requestBackup() {
+    return api('/api/backup', { method: 'POST', body: {} })
   }
 
   function clone(v) {
@@ -247,6 +238,51 @@
     return num.toLocaleString('en-US')
   }
 
+  function currentLocale() {
+    return window.i18n?.locale?.() || 'fa-IR'
+  }
+
+  function formatDateFa(iso) {
+    if (!iso) return ''
+    try {
+      return new Date(iso).toLocaleString(currentLocale(), {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch {
+      return String(iso)
+    }
+  }
+
+  function formatDateOnlyFa(iso) {
+    if (!iso) return ''
+    try {
+      const d = iso.length <= 10 ? new Date(iso + 'T00:00:00') : new Date(iso)
+      return d.toLocaleDateString(currentLocale())
+    } catch {
+      return String(iso)
+    }
+  }
+
+  function normalizeOrder(order) {
+    const total = parseMoney(order.totalAmount)
+    const deposit = parseMoney(order.deposit)
+    return {
+      ...order,
+      totalAmount: total,
+      deposit,
+      remainingAmount: Math.max(0, total - deposit),
+      status: ORDER_STATUSES.includes(order.status) ? order.status : 'registered',
+      dueDate: order.dueDate || '',
+      description: order.description || order.note || '',
+      payments: Array.isArray(order.payments) ? order.payments : [],
+      updatedAt: order.updatedAt || order.createdAt || nowIso()
+    }
+  }
+
   function createProduct({ name, price, description, imageDataUrl }) {
     const cleanName = String(name ?? '').trim()
     if (!cleanName) return { ok: false, error: 'errorProductRequired' }
@@ -296,10 +332,12 @@
       totalAmount: 0,
       deposit: 0,
       remainingAmount: 0,
+      status: 'registered',
+      dueDate: '',
       description: '',
+      payments: [],
       createdAt: nowIso(),
-      updatedAt: nowIso(),
-      history: []
+      updatedAt: nowIso()
     }
   }
 
@@ -373,7 +411,6 @@
   function validateFinalOrder(draft) {
     const ln = String(draft?.customer?.lastName ?? '').trim()
     const ph = String(draft?.customer?.phone ?? '').trim()
-    const description = String(draft?.description ?? '').trim()
 
     if (!ln) return { ok: false, error: 'errorLastNameRequired' }
     if (!isValidIranMobile(ph)) return { ok: false, error: 'errorPhoneInvalid' }
@@ -381,53 +418,14 @@
 
     const final = recomputeOrder(draft)
     if (!(final.totalAmount > 0)) return { ok: false, error: 'errorPriceRequired' }
-    if (final.deposit > final.totalAmount) return { ok: false, error: 'errorDepositTooHigh' }
 
-    final.description = description
+    final.status = final.status || 'registered'
+    final.description = String(final.description || '').trim()
+    final.dueDate = String(final.dueDate || '').trim()
+    final.updatedAt = nowIso()
+    if (!Array.isArray(final.payments)) final.payments = []
 
     return { ok: true, order: final }
-  }
-
-  function appendHistory(order, action, payload) {
-    const next = clone(order)
-    const history = Array.isArray(next.history) ? next.history.slice() : []
-    history.push({
-      ts: nowIso(),
-      action,
-      payload: payload ?? null
-    })
-    next.history = history
-    return next
-  }
-
-  function updateOrder(existing, patch) {
-    const base = clone(existing)
-    const merged = {
-      ...base,
-      ...patch,
-      customer: {
-        ...(base.customer || {}),
-        ...(patch?.customer || {})
-      },
-      items: Array.isArray(patch?.items) ? patch.items : base.items,
-      description: patch?.description ?? base.description,
-      deposit: patch?.deposit ?? base.deposit
-    }
-
-    const validated = validateFinalOrder(merged)
-    if (!validated.ok) return validated
-
-    const next = recomputeOrder(validated.order)
-    next.createdAt = base.createdAt || next.createdAt || nowIso()
-    next.updatedAt = nowIso()
-    next.history = Array.isArray(base.history) ? base.history.slice() : []
-    next.history.push({
-      ts: next.updatedAt,
-      action: 'update',
-      payload: patch ?? null
-    })
-
-    return { ok: true, order: next }
   }
 
   function $(sel, root = document) {
@@ -457,54 +455,28 @@
     return new Promise((resolve, reject) => {
       if (!file) return resolve('')
       const reader = new FileReader()
-      reader.onerror = () => reject(new Error('خواندن فایل ناموفق بود'))
+      reader.onerror = () => reject(new Error(window.i18n?.t?.('errorImageRead') || 'Failed to read image'))
       reader.onload = () => resolve(String(reader.result ?? ''))
       reader.readAsDataURL(file)
     })
   }
 
-  function updateSidebarTooltips() {
-    if (!window.i18n) {
-      // Retry after a short delay if i18n is not ready
-      setTimeout(updateSidebarTooltips, 100)
-      return
-    }
-    const t = window.i18n.t || ((k) => k)
-    
-    const sidebarItems = document.querySelectorAll('.sidebar-item')
-    sidebarItems.forEach(item => {
-      const textSpan = item.querySelector('.sidebar-text')
-      if (textSpan && textSpan.hasAttribute('data-i18n')) {
-        const i18nKey = textSpan.getAttribute('data-i18n')
-        const translatedText = t(i18nKey)
-        // Always set tooltip, even if translation equals key (fallback to key)
-        if (translatedText) {
-          item.setAttribute('data-tooltip', translatedText)
-        } else if (i18nKey) {
-          // Fallback to key if translation not found
-          item.setAttribute('data-tooltip', i18nKey)
-        }
-      }
-    })
-  }
-
   function initI18n() {
     if (!window.i18n) return
-    
-    // Apply language to HTML element
-    const language = window.i18n.getLanguage ? window.i18n.getLanguage() : (localStorage.getItem('language') || 'en')
-    const html = document.documentElement
-    html.setAttribute('lang', language === 'fa' ? 'fa' : 'en')
-    html.setAttribute('dir', language === 'fa' ? 'rtl' : 'ltr')
-    
+
+    window.i18n.applyDocumentLang(window.i18n.getLang())
+
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n')
       const text = window.i18n.t(key)
       if (text && text !== key) {
+        if (el.tagName === 'TITLE') {
+          document.title = text
+        }
         el.textContent = text
       }
     })
-    
+
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.getAttribute('data-i18n-placeholder')
       const text = window.i18n.t(key)
@@ -512,31 +484,44 @@
         el.placeholder = text
       }
     })
-    
-    // Update title and aria-label attributes
+
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       const key = el.getAttribute('data-i18n-title')
       const text = window.i18n.t(key)
-      if (text && text !== key) {
-        el.title = text
-      }
+      if (text && text !== key) el.setAttribute('title', text)
     })
-    
-    document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
-      const key = el.getAttribute('data-i18n-aria-label')
-      const text = window.i18n.t(key)
-      if (text && text !== key) {
-        el.setAttribute('aria-label', text)
-      }
+
+    document.querySelectorAll('.lang-select').forEach(sel => {
+      sel.value = window.i18n.getLang()
     })
-    
-    // Update sidebar tooltips
-    updateSidebarTooltips()
+  }
+
+  function bindLanguageControls(root = document) {
+    root.querySelectorAll('.lang-select').forEach(sel => {
+      if (sel.dataset.bound === '1') return
+      sel.dataset.bound = '1'
+      sel.value = window.i18n?.getLang?.() || 'fa'
+      sel.addEventListener('change', () => {
+        window.i18n.setLang(sel.value, { reload: true })
+      })
+    })
   }
 
   function downloadJson(filename, data) {
     const json = JSON.stringify(data, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function downloadTextFile(filename, content, mime) {
+    const blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -557,9 +542,7 @@
       reader.onerror = () => reject(new Error('Failed to read file'))
       reader.onload = () => {
         try {
-          const text = reader.result
-          const data = JSON.parse(text)
-          resolve(data)
+          resolve(JSON.parse(reader.result))
         } catch (e) {
           reject(new Error('Invalid JSON file'))
         }
@@ -573,82 +556,9 @@
     document.documentElement.setAttribute('data-theme', savedTheme)
   }
 
-  const RECEIPT_SETTINGS_KEY = 'receiptStyleSettings_v1'
-
-  function getReceiptStyleSettings() {
-    const raw = localStorage.getItem(RECEIPT_SETTINGS_KEY)
-    const v = safeJsonParse(raw, {})
-    return v && typeof v === 'object' ? v : {}
-  }
-
-  function setReceiptVar(name, value) {
-    const root = document.documentElement
-    if (!value) {
-      root.style.removeProperty(name)
-      return
-    }
-    root.style.setProperty(name, String(value))
-  }
-
-  function applyReceiptStylePreset(preset) {
-    if (preset === 'small') {
-      setReceiptVar('--receipt-padding', '14px')
-      setReceiptVar('--receipt-title-size', '16px')
-      setReceiptVar('--receipt-h2-size', '14px')
-      setReceiptVar('--receipt-label-size', '12px')
-      setReceiptVar('--receipt-value-size', '12px')
-      setReceiptVar('--receipt-item-sub-size', '11px')
-      return
-    }
-
-    if (preset === 'large') {
-      setReceiptVar('--receipt-padding', '26px')
-      setReceiptVar('--receipt-title-size', '20px')
-      setReceiptVar('--receipt-h2-size', '18px')
-      setReceiptVar('--receipt-label-size', '16px')
-      setReceiptVar('--receipt-value-size', '16px')
-      setReceiptVar('--receipt-item-sub-size', '14px')
-      return
-    }
-
-    setReceiptVar('--receipt-padding', '')
-    setReceiptVar('--receipt-title-size', '')
-    setReceiptVar('--receipt-h2-size', '')
-    setReceiptVar('--receipt-label-size', '')
-    setReceiptVar('--receipt-value-size', '')
-    setReceiptVar('--receipt-item-sub-size', '')
-  }
-
-  function applyReceiptStyleSettings(settings) {
-    const s = settings || getReceiptStyleSettings()
-
-    const size = s.size || 'a4'
-    const body = document.body
-    if (body) {
-      body.classList.remove('size-a4', 'size-a5', 'size-80mm', 'size-58mm', 'size-business-card')
-      body.classList.add(`size-${size}`)
-    }
-
-    applyReceiptStylePreset(s.fontSizePreset || 'medium')
-
-    setReceiptVar('--receipt-title-weight', s.titleWeight)
-    setReceiptVar('--receipt-price-weight', s.priceWeight)
-
-    setReceiptVar('--receipt-bg', s.bgColor)
-    setReceiptVar('--receipt-card-bg', s.cardBgColor)
-    setReceiptVar('--receipt-card-border', s.borderColor)
-  }
-
   function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'light'
-    let newTheme = 'light'
-    if (currentTheme === 'light') {
-      newTheme = 'dark'
-    } else if (currentTheme === 'dark') {
-      newTheme = 'gray'
-    } else {
-      newTheme = 'light'
-    }
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', newTheme)
     localStorage.setItem('theme', newTheme)
     return newTheme
@@ -657,7 +567,6 @@
   function getTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light'
     const currentTheme = document.documentElement.getAttribute('data-theme') || savedTheme
-    // اطمینان از هماهنگی
     if (currentTheme !== savedTheme) {
       document.documentElement.setAttribute('data-theme', savedTheme)
       return savedTheme
@@ -665,22 +574,134 @@
     return currentTheme
   }
 
+  function setupSidebar(els, t) {
+    bindLanguageControls(document)
+    if (!els.sidebarToggle || !els.sidebar) return
+    els.sidebarToggle.addEventListener('click', () => {
+      els.sidebar.classList.toggle('collapsed')
+      const isCollapsed = els.sidebar.classList.contains('collapsed')
+      localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false')
+    })
+    if (localStorage.getItem('sidebarCollapsed') === 'true') {
+      els.sidebar.classList.add('collapsed')
+    }
+    const sidebarItems = els.sidebar.querySelectorAll('.sidebar-item')
+    sidebarItems.forEach(item => {
+      const textSpan = item.querySelector('.sidebar-text')
+      if (textSpan && textSpan.hasAttribute('data-i18n')) {
+        const i18nKey = textSpan.getAttribute('data-i18n')
+        item.setAttribute('data-tooltip', t(i18nKey))
+      }
+    })
+  }
+
+  function statusLabel(status, t) {
+    const key = `status_${status}`
+    const label = t(key)
+    return label === key ? status : label
+  }
+
+  function printReceipt(order, t) {
+    const currency = t('currency')
+    const shopName = t('shopName')
+    const items = (order.items || []).map(it => `
+      <tr>
+        <td>${escapeHtml(it.name)}</td>
+        <td>${escapeHtml(it.quantity)}</td>
+        <td>${formatMoney(it.unitPrice)} ${currency}</td>
+        <td>${formatMoney(it.totalPrice)} ${currency}</td>
+      </tr>
+    `).join('')
+
+    const lang = window.i18n?.getLang?.() || 'fa'
+    const dir = lang === 'fa' ? 'rtl' : 'ltr'
+    const html = `<!doctype html>
+<html lang="${lang}" dir="${dir}">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(t('receiptTitle'))}</title>
+  <style>
+    body { font-family: ${lang === 'fa' ? 'Tahoma, "Segoe UI"' : 'system-ui, sans-serif'}; padding: 24px; color: #111; direction: ${dir}; }
+    h1 { margin: 0 0 8px; font-size: 20px; }
+    .meta { margin-bottom: 16px; font-size: 13px; line-height: 1.8; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    th, td { border: 1px solid #ccc; padding: 8px; font-size: 13px; text-align: ${dir === 'rtl' ? 'right' : 'left'}; }
+    th { background: #f3f3f3; }
+    .totals { margin-top: 12px; font-size: 14px; line-height: 1.9; }
+    .footer { margin-top: 24px; font-size: 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(shopName)}</h1>
+  <div class="meta">
+    <div>${escapeHtml(t('receiptTitle'))}</div>
+    <div>${escapeHtml(t('customerLastName'))}: ${escapeHtml(order.customer?.lastName || '')}</div>
+    <div>${escapeHtml(t('customerPhone'))}: ${escapeHtml(order.customer?.phone || '')}</div>
+    <div>${escapeHtml(t('orderDate'))}: ${escapeHtml(formatDateFa(order.createdAt))}</div>
+    <div>${escapeHtml(t('orderStatus'))}: ${escapeHtml(statusLabel(order.status, t))}</div>
+    ${order.dueDate ? `<div>${escapeHtml(t('dueDate'))}: ${escapeHtml(formatDateOnlyFa(order.dueDate))}</div>` : ''}
+    ${order.description ? `<div>${escapeHtml(t('orderNote'))}: ${escapeHtml(order.description)}</div>` : ''}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>${escapeHtml(t('productName'))}</th>
+        <th>${escapeHtml(t('quantity'))}</th>
+        <th>${escapeHtml(t('unitPrice'))}</th>
+        <th>${escapeHtml(t('itemTotal'))}</th>
+      </tr>
+    </thead>
+    <tbody>${items}</tbody>
+  </table>
+  <div class="totals">
+    <div>${escapeHtml(t('totalAmount'))}: ${formatMoney(order.totalAmount)} ${currency}</div>
+    <div>${escapeHtml(t('deposit'))}: ${formatMoney(order.deposit)} ${currency}</div>
+    <div>${escapeHtml(t('remainingAmount'))}: ${formatMoney(order.remainingAmount)} ${currency}</div>
+  </div>
+  <div class="footer">${escapeHtml(t('receiptThanks'))}</div>
+  <script>window.onload = function () { window.print(); }<\/script>
+</body>
+</html>`
+
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=720,height=900')
+    if (!w) {
+      alert(t('printBlocked'))
+      return
+    }
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+  }
+
   window.PhotoTools = {
     auth: {
-      getAuthHeaders,
-      checkAuthToken,
+      checkAuth,
+      requireAuth,
+      login,
       logout,
-      initSessionTimeout
+      changePassword
     },
     storage: {
       loadProducts,
-      saveProducts,
+      createProduct: createProductApi,
+      updateProduct: updateProductApi,
+      deleteProduct: deleteProductApi,
+      replaceProducts,
       loadOrders,
-      saveOrders,
-      clearAll
+      createOrder: createOrderApi,
+      updateOrder: updateOrderApi,
+      patchOrder: patchOrderApi,
+      deleteOrder: deleteOrderApi,
+      addPayment: addPaymentApi,
+      replaceOrders,
+      loadSmsSettings,
+      saveSmsSettings,
+      sendSms: sendSmsApi,
+      requestBackup
     },
     file: {
       downloadJson,
+      downloadTextFile,
       readJsonFile
     },
     logic: {
@@ -691,6 +712,9 @@
       parseMoney,
       parseQty,
       formatMoney,
+      formatDateFa,
+      formatDateOnlyFa,
+      normalizeOrder,
       createProduct,
       updateProduct,
       createOrderDraft,
@@ -700,9 +724,8 @@
       updateItemQty,
       removeItem,
       validateFinalOrder,
-      appendHistory,
-      updateOrder,
-      clone
+      ORDER_STATUSES,
+      statusLabel
     },
     ui: {
       $,
@@ -711,92 +734,26 @@
       escapeHtml,
       readFileAsDataUrl,
       initI18n,
-      updateSidebarTooltips
+      setupSidebar,
+      bindLanguageControls,
+      printReceipt
     },
     theme: {
       init: initTheme,
       toggle: toggleTheme,
       get: getTheme
     },
-    receipt: {
-      key: RECEIPT_SETTINGS_KEY,
-      getSettings: getReceiptStyleSettings,
-      applySettings: applyReceiptStyleSettings
-    },
-    formatMoneyInput
-  }
-  
-  function addPageTransition() {
-    // اضافه کردن transition برای لینک‌های داخلی
-    document.addEventListener('click', (e) => {
-      const link = e.target.closest('a')
-      if (!link) return
-      
-      const href = link.getAttribute('href')
-      if (!href) return
-      
-      // فقط برای لینک‌های داخلی (نه لینک‌های خارجی یا anchor)
-      if (href.startsWith('http') || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) {
-        return
-      }
-      
-      // اگر لینک به همان صفحه فعلی است، transition نده
-      if (href === window.location.pathname || href === './' + window.location.pathname.split('/').pop()) {
-        return
-      }
-      
-      // اضافه کردن fade-out به body
-      document.body.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-      document.body.style.opacity = '0.8'
-      document.body.style.transform = 'scale(0.98)'
-      
-      // بعد از transition، صفحه تغییر می‌کند
-      setTimeout(() => {
-        document.body.style.opacity = '1'
-        document.body.style.transform = 'scale(1)'
-      }, 250)
-    })
-  }
-
-  function setupAnimationIndices() {
-    // تنظیم index برای کارت‌ها
-    const cards = document.querySelectorAll('.card')
-    cards.forEach((card, index) => {
-      card.style.setProperty('--card-index', index)
-    })
-    
-    // تنظیم index برای آیتم‌ها
-    const items = document.querySelectorAll('.item')
-    items.forEach((item, index) => {
-      item.style.setProperty('--item-index', index)
-    })
-    
-    // تنظیم index برای stat-card ها
-    const statCards = document.querySelectorAll('.stat-card')
-    statCards.forEach((card, index) => {
-      card.style.setProperty('--stat-index', index)
-    })
-    
-    // تنظیم index برای sidebar-item ها
-    const sidebarItems = document.querySelectorAll('.sidebar-item')
-    sidebarItems.forEach((item, index) => {
-      item.style.setProperty('--sidebar-item-index', index)
-    })
+    formatMoneyInput,
+    api
   }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       initI18n()
       initTheme()
-      addPageTransition()
-      setupAnimationIndices()
     })
   } else {
     initI18n()
     initTheme()
-    addPageTransition()
-    setupAnimationIndices()
   }
 })()
-
-

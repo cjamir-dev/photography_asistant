@@ -5,36 +5,21 @@ const els = {
   loginError: document.getElementById('loginError')
 }
 
+function t(key) {
+  return window.i18n?.t?.(key) || key
+}
+
 function showError(msg) {
   els.loginError.textContent = msg
   els.loginError.style.display = msg ? 'block' : 'none'
 }
 
 async function checkAuth() {
-  const token = localStorage.getItem('authToken')
-  if (!token) return false
-  
-  try {
-    const response = await fetch('/api/auth/verify', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      if (data.valid) {
-        window.location.href = './index.html'
-        return true
-      }
-    }
-  } catch (e) {
-    // Ignore errors
+  if (!window.PhotoTools?.auth) return
+  const me = await window.PhotoTools.auth.checkAuth()
+  if (me.authenticated) {
+    window.location.href = me.mustChangePassword ? './settings.html' : './dashboard.html'
   }
-  
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('username')
-  return false
 }
 
 async function handleLogin(e) {
@@ -42,49 +27,41 @@ async function handleLogin(e) {
   showError('')
 
   const username = els.username.value.trim()
-  const password = els.password.value.trim()
+  const password = els.password.value
 
   if (!username || !password) {
-    return showError('Please enter both username and password')
+    return showError(t('errorLoginRequired'))
   }
 
   try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ username, password })
-    })
-
-    const data = await response.json()
-    
-    console.log('[LOGIN] Response:', { status: response.status, ok: response.ok, data })
-
-    if (response.ok && data.success) {
-      localStorage.setItem('authToken', data.token)
-      localStorage.setItem('username', data.username)
-      window.location.href = './index.html'
+    const result = await window.PhotoTools.auth.login(username, password)
+    if (result.mustChangePassword) {
+      window.location.href = './settings.html'
     } else {
-      showError(data.error || 'Invalid username or password')
-      els.password.value = ''
+      window.location.href = './dashboard.html'
     }
-  } catch (e) {
-    console.error('[LOGIN] Error:', e)
-    showError('Connection error. Please try again.')
+  } catch (err) {
+    const code = err.code || ''
+    if (code === 'invalid_credentials' || err.status === 401) {
+      showError(t('errorLoginFailed'))
+    } else {
+      showError(err.message || t('errorLoginFailed'))
+    }
     els.password.value = ''
   }
 }
 
-function init() {
-  // Initialize theme
-  if (window.PhotoTools && window.PhotoTools.theme) {
+async function init() {
+  if (window.PhotoTools?.theme) {
     window.PhotoTools.theme.init()
   }
-  
-  checkAuth()
+  if (window.PhotoTools?.ui) {
+    window.PhotoTools.ui.initI18n()
+    window.PhotoTools.ui.bindLanguageControls(document)
+  }
+
+  await checkAuth()
   els.loginForm.addEventListener('submit', handleLogin)
-  
   els.username.focus()
 }
 
@@ -93,5 +70,3 @@ if (document.readyState === 'loading') {
 } else {
   init()
 }
-
-
