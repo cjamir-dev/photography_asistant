@@ -1,7 +1,7 @@
 const { storage, logic, ui, auth } = window.PhotoTools
 const { loadOrders } = storage
-const { formatMoney, formatDateFa, statusLabel } = logic
-const { $, setText, setHidden, escapeHtml, setupSidebar } = ui
+const { formatMoney, formatDateFa, statusLabel, buildMonthlyReport } = logic
+const { $, setText, setHidden, escapeHtml, setupSidebar, printMonthlyReport } = ui
 const t = window.i18n?.t || ((k) => k)
 
 const els = {
@@ -14,15 +14,30 @@ const els = {
   statRemainingAmount: $('#statRemainingAmount'),
   recentOrdersList: $('#recentOrdersList'),
   unpaidOrdersList: $('#unpaidOrdersList'),
+  reportMonth: $('#reportMonth'),
+  reportRefreshBtn: $('#reportRefreshBtn'),
+  reportPrintBtn: $('#reportPrintBtn'),
+  reportOrderCount: $('#reportOrderCount'),
+  reportCustomers: $('#reportCustomers'),
+  reportTotal: $('#reportTotal'),
+  reportCollected: $('#reportCollected'),
+  reportRemaining: $('#reportRemaining'),
+  reportTopProduct: $('#reportTopProduct'),
+  reportTopProductsList: $('#reportTopProductsList'),
   sidebar: $('#sidebar'),
   sidebarToggle: $('#sidebarToggle'),
   logoutBtn: $('#logoutBtn')
 }
 
 let orders = []
+let currentReport = null
 
 function getTodayDate() {
   return new Date().toISOString().split('T')[0]
+}
+
+function currentMonthValue() {
+  return new Date().toISOString().slice(0, 7)
 }
 
 function calculateStats(ordersList) {
@@ -120,12 +135,40 @@ function renderUnpaidOrders(ordersList) {
   `).join('')
 }
 
+function renderMonthlyReport() {
+  const month = els.reportMonth?.value || currentMonthValue()
+  currentReport = buildMonthlyReport(orders, month)
+  if (els.reportOrderCount) els.reportOrderCount.textContent = String(currentReport.orderCount)
+  if (els.reportCustomers) els.reportCustomers.textContent = String(currentReport.customerCount)
+  setMoneyStat(els.reportTotal, currentReport.totalAmount)
+  setMoneyStat(els.reportCollected, currentReport.collected)
+  setMoneyStat(els.reportRemaining, currentReport.remainingAmount)
+  if (els.reportTopProduct) {
+    els.reportTopProduct.textContent = currentReport.topProducts[0]?.name || t('reportNoProducts')
+  }
+  if (els.reportTopProductsList) {
+    if (!currentReport.topProducts.length) {
+      els.reportTopProductsList.innerHTML = `<p class="help">${t('reportNoProducts')}</p>`
+    } else {
+      els.reportTopProductsList.innerHTML = currentReport.topProducts.map((p, i) => `
+        <div class="item">
+          <div class="meta">
+            <div class="title">${i + 1}. ${escapeHtml(p.name)}</div>
+            <div class="sub">${t('quantity')}: ${p.qty} · <span class="money-ltr">${formatMoney(p.sales)}</span> ${t('currency')}</div>
+          </div>
+        </div>
+      `).join('')
+    }
+  }
+}
+
 async function loadDashboardData() {
   orders = await loadOrders()
   const stats = calculateStats(orders)
   renderStats(stats)
   renderRecentOrders(orders)
   renderUnpaidOrders(orders)
+  renderMonthlyReport()
 }
 
 async function init() {
@@ -138,8 +181,24 @@ async function init() {
 
   ui.initI18n()
   setupSidebar(els, t)
+  if (els.reportMonth) els.reportMonth.value = currentMonthValue()
   await loadDashboardData()
   setInterval(loadDashboardData, 30000)
+
+  if (els.reportMonth) {
+    els.reportMonth.addEventListener('change', renderMonthlyReport)
+  }
+  if (els.reportRefreshBtn) {
+    els.reportRefreshBtn.addEventListener('click', () => {
+      loadDashboardData().catch((e) => alert(e.message))
+    })
+  }
+  if (els.reportPrintBtn) {
+    els.reportPrintBtn.addEventListener('click', () => {
+      if (!currentReport) renderMonthlyReport()
+      printMonthlyReport(currentReport, t)
+    })
+  }
 
   if (els.logoutBtn) {
     els.logoutBtn.addEventListener('click', () => {

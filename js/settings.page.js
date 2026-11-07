@@ -10,8 +10,13 @@ const els = {
   smsUsername: $('#smsUsername'),
   smsPassword: $('#smsPassword'),
   smsFromNumber: $('#smsFromNumber'),
-  smsMessageTemplate: $('#smsMessageTemplate'),
+  smsTemplateCreate: $('#smsTemplateCreate'),
+  smsTemplateSettle: $('#smsTemplateSettle'),
+  smsTemplateReady: $('#smsTemplateReady'),
   smsEnabled: $('#smsEnabled'),
+  smsEnabledOnCreate: $('#smsEnabledOnCreate'),
+  smsEnabledOnSettle: $('#smsEnabledOnSettle'),
+  smsEnabledOnReady: $('#smsEnabledOnReady'),
   smsTestPhone: $('#smsTestPhone'),
   smsTestBtn: $('#smsTestBtn'),
   saveSettingsBtn: $('#saveSettingsBtn'),
@@ -47,10 +52,20 @@ async function loadSettings() {
     els.smsPassword.placeholder = smsSettings.passwordSet ? t('smsPasswordKeep') : ''
   }
   if (els.smsFromNumber) els.smsFromNumber.value = smsSettings.fromNumber || ''
-  if (els.smsMessageTemplate) {
-    els.smsMessageTemplate.value = smsSettings.messageTemplate || t('smsDefaultTemplate')
+  const templates = smsSettings.templates || {}
+  if (els.smsTemplateCreate) {
+    els.smsTemplateCreate.value = templates.create || smsSettings.messageTemplate || t('smsDefaultTemplateCreate')
+  }
+  if (els.smsTemplateSettle) {
+    els.smsTemplateSettle.value = templates.settle || t('smsDefaultTemplateSettle')
+  }
+  if (els.smsTemplateReady) {
+    els.smsTemplateReady.value = templates.ready || t('smsDefaultTemplateReady')
   }
   if (els.smsEnabled) els.smsEnabled.checked = smsSettings.enabled === true
+  if (els.smsEnabledOnCreate) els.smsEnabledOnCreate.checked = smsSettings.enabledOnCreate !== false
+  if (els.smsEnabledOnSettle) els.smsEnabledOnSettle.checked = smsSettings.enabledOnSettle === true
+  if (els.smsEnabledOnReady) els.smsEnabledOnReady.checked = smsSettings.enabledOnReady === true
 }
 
 function showSettingsOk(msg) {
@@ -91,8 +106,16 @@ async function saveSettings({ silent } = {}) {
     apiType: els.smsApiType?.value || 'payamak-vip',
     username: els.smsUsername?.value || '',
     fromNumber: els.smsFromNumber?.value || '',
-    messageTemplate: els.smsMessageTemplate?.value || '',
-    enabled: els.smsEnabled?.checked || false
+    messageTemplate: els.smsTemplateCreate?.value || '',
+    templates: {
+      create: els.smsTemplateCreate?.value || '',
+      settle: els.smsTemplateSettle?.value || '',
+      ready: els.smsTemplateReady?.value || ''
+    },
+    enabled: els.smsEnabled?.checked || false,
+    enabledOnCreate: els.smsEnabledOnCreate?.checked || false,
+    enabledOnSettle: els.smsEnabledOnSettle?.checked || false,
+    enabledOnReady: els.smsEnabledOnReady?.checked || false
   }
   if (els.smsPassword?.value) payload.password = els.smsPassword.value
   await saveSmsSettings(payload)

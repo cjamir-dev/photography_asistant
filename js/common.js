@@ -574,8 +574,120 @@
     return currentTheme
   }
 
+  function setupGlobalSearch(t) {
+    const actions = document.querySelector('.topbar-actions')
+    if (!actions || actions.querySelector('.global-search')) return
+
+    const wrap = document.createElement('div')
+    wrap.className = 'global-search'
+    wrap.innerHTML = `
+      <label class="visually-hidden" for="globalSearchInput">${escapeHtml(t('globalSearch'))}</label>
+      <input id="globalSearchInput" class="global-search-input" type="search" autocomplete="off"
+        placeholder="${escapeHtml(t('globalSearchPlaceholder'))}" data-i18n-placeholder="globalSearchPlaceholder" />
+      <div class="global-search-results" id="globalSearchResults" hidden></div>
+    `
+    actions.insertBefore(wrap, actions.firstChild)
+
+    const input = wrap.querySelector('#globalSearchInput')
+    const resultsEl = wrap.querySelector('#globalSearchResults')
+    let cache = null
+    let cacheAt = 0
+    let timer = null
+
+    async function getOrders() {
+      if (cache && Date.now() - cacheAt < 20000) return cache
+      cache = await loadOrders()
+      cacheAt = Date.now()
+      return cache
+    }
+
+    function matches(order, q) {
+      const query = String(q || '').trim().toLowerCase()
+      if (!query) return false
+      const name = String(order.customer?.lastName || '').toLowerCase()
+      const phone = String(order.customer?.phone || '')
+      const id = String(order.id || '').toLowerCase()
+      const digits = query.replace(/\D/g, '')
+      return name.includes(query)
+        || id.includes(query)
+        || (digits && phone.includes(digits))
+        || phone.includes(query)
+    }
+
+    function hideResults() {
+      resultsEl.hidden = true
+      resultsEl.innerHTML = ''
+    }
+
+    function renderResults(list, q) {
+      if (!q.trim()) {
+        hideResults()
+        return
+      }
+      if (!list.length) {
+        resultsEl.hidden = false
+        resultsEl.innerHTML = `<div class="global-search-empty">${escapeHtml(t('globalSearchEmpty'))}</div>`
+        return
+      }
+      resultsEl.hidden = false
+      resultsEl.innerHTML = list.map(order => `
+        <button type="button" class="global-search-item" data-id="${escapeHtml(order.id)}">
+          <span class="global-search-title">${escapeHtml(order.customer?.lastName || '—')}</span>
+          <span class="global-search-sub">${escapeHtml(order.customer?.phone || '')} · ${escapeHtml(statusLabel(order.status, t))}</span>
+          <span class="global-search-money money-ltr">${formatMoney(order.remainingAmount || 0)} ${escapeHtml(t('currency'))}</span>
+        </button>
+      `).join('')
+    }
+
+    async function runSearch() {
+      const q = input.value || ''
+      if (!q.trim()) {
+        hideResults()
+        return
+      }
+      try {
+        const orders = await getOrders()
+        const matched = orders
+          .filter(o => matches(o, q))
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+          .slice(0, 8)
+        renderResults(matched, q)
+      } catch {
+        resultsEl.hidden = false
+        resultsEl.innerHTML = `<div class="global-search-empty">${escapeHtml(t('errorServer'))}</div>`
+      }
+    }
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer)
+      timer = setTimeout(runSearch, 180)
+    })
+    input.addEventListener('focus', () => {
+      if (input.value.trim()) runSearch()
+    })
+    resultsEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-id]')
+      if (!btn) return
+      window.location.href = `./orders.html?id=${encodeURIComponent(btn.getAttribute('data-id'))}`
+    })
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target)) hideResults()
+    })
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideResults()
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        const first = resultsEl.querySelector('[data-id]')
+        if (first) {
+          window.location.href = `./orders.html?id=${encodeURIComponent(first.getAttribute('data-id'))}`
+        }
+      }
+    })
+  }
+
   function setupSidebar(els, t) {
     bindLanguageControls(document)
+    setupGlobalSearch(t)
     if (!els.sidebarToggle || !els.sidebar) return
     els.sidebarToggle.addEventListener('click', () => {
       els.sidebar.classList.toggle('collapsed')
@@ -593,6 +705,202 @@
         item.setAttribute('data-tooltip', t(i18nKey))
       }
     })
+  }
+
+  async function trySendOrderSms(order, templateType = 'create') {
+    try {
+      const settings = await loadSmsSettings()
+      if (!settings.enabled) return { ok: false, skipped: true }
+      const flags = {
+        create: settings.enabledOnCreate !== false,
+        settle: Boolean(settings.enabledOnSettle),
+        ready: Boolean(settings.enabledOnReady)
+      }
+      if (!flags[templateType]) return { ok: false, skipped: true }
+      if (!settings.username || !settings.passwordSet || !settings.fromNumber) {
+        return { ok: false, skipped: true, error: window.i18n?.t?.('smsNotConfigured') || 'SMS not configured' }
+      }
+      await sendSmsApi({
+        toNumbers: order.customer?.phone || '',
+        templateType,
+        order: {
+          customer: order.customer,
+          totalAmount: formatMoney(order.totalAmount || 0),
+          deposit: formatMoney(order.deposit || 0),
+          remainingAmount: formatMoney(order.remainingAmount || 0),
+          status: order.status || ''
+        }
+      })
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message || (window.i18n?.t?.('smsError') || 'SMS error') }
+    }
+  }
+
+  function monthKeyFromDate(value) {
+    if (!value) return ''
+    const d = value.length <= 10 ? new Date(value + 'T00:00:00') : new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    return `${y}-${m}`
+  }
+
+  function buildMonthlyReport(ordersList, yearMonth) {
+    const key = String(yearMonth || '').slice(0, 7)
+    const monthOrders = (ordersList || []).filter(o => monthKeyFromDate(o.createdAt) === key)
+    let totalAmount = 0
+    let depositAtCreate = 0
+    let remainingAmount = 0
+    let paymentsInMonth = 0
+    const productMap = new Map()
+    const customers = new Set()
+
+    monthOrders.forEach(order => {
+      totalAmount += Number(order.totalAmount) || 0
+      depositAtCreate += Number(order.deposit) || 0
+      remainingAmount += Number(order.remainingAmount) || 0
+      if (order.customer?.phone) customers.add(order.customer.phone)
+      ;(order.items || []).forEach(item => {
+        const name = item.name || '—'
+        const qty = Number(item.quantity) || 0
+        const sales = Number(item.totalPrice) || 0
+        const prev = productMap.get(name) || { name, qty: 0, sales: 0 }
+        prev.qty += qty
+        prev.sales += sales
+        productMap.set(name, prev)
+      })
+    })
+
+    ;(ordersList || []).forEach(order => {
+      ;(order.payments || []).forEach(p => {
+        if (monthKeyFromDate(p.at) === key) {
+          paymentsInMonth += Number(p.amount) || 0
+        }
+      })
+    })
+
+    const topProducts = [...productMap.values()]
+      .sort((a, b) => b.qty - a.qty || b.sales - a.sales)
+      .slice(0, 5)
+
+    const collected = paymentsInMonth > 0
+      ? paymentsInMonth
+      : depositAtCreate
+
+    return {
+      yearMonth: key,
+      orderCount: monthOrders.length,
+      customerCount: customers.size,
+      totalAmount,
+      collected,
+      paymentsInMonth,
+      depositAtCreate,
+      remainingAmount,
+      topProducts,
+      orders: monthOrders
+        .slice()
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    }
+  }
+
+  function printMonthlyReport(report, t) {
+    const currency = t('currency')
+    const lang = window.i18n?.getLang?.() || 'fa'
+    const dir = lang === 'fa' ? 'rtl' : 'ltr'
+    const monthLabel = report.yearMonth
+      ? (() => {
+        try {
+          return new Date(report.yearMonth + '-01T00:00:00').toLocaleDateString(
+            currentLocale(),
+            { year: 'numeric', month: 'long' }
+          )
+        } catch {
+          return report.yearMonth
+        }
+      })()
+      : ''
+
+    const topRows = (report.topProducts || []).map((p, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.qty)}</td>
+        <td>${formatMoney(p.sales)} ${currency}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="4">${escapeHtml(t('reportNoProducts'))}</td></tr>`
+
+    const orderRows = (report.orders || []).slice(0, 40).map(o => `
+      <tr>
+        <td>${escapeHtml(o.customer?.lastName || '')}</td>
+        <td>${escapeHtml(o.customer?.phone || '')}</td>
+        <td>${escapeHtml(formatDateFa(o.createdAt))}</td>
+        <td>${formatMoney(o.totalAmount)} ${currency}</td>
+        <td>${formatMoney(o.deposit)} ${currency}</td>
+        <td>${formatMoney(o.remainingAmount)} ${currency}</td>
+      </tr>
+    `).join('') || `<tr><td colspan="6">${escapeHtml(t('noOrders'))}</td></tr>`
+
+    const html = `<!doctype html>
+<html lang="${lang}" dir="${dir}">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(t('monthlyReport'))} — ${escapeHtml(monthLabel)}</title>
+  <style>
+    body { font-family: ${lang === 'fa' ? 'Tahoma, "Segoe UI"' : 'system-ui, sans-serif'}; padding: 28px; color: #111; direction: ${dir}; }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .sub { color: #555; margin-bottom: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0 22px; }
+    .stat { border: 1px solid #ddd; padding: 10px 12px; border-radius: 8px; }
+    .stat b { display: block; font-size: 16px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; }
+    th, td { border: 1px solid #ccc; padding: 7px 8px; font-size: 12px; text-align: ${dir === 'rtl' ? 'right' : 'left'}; }
+    th { background: #f3f3f3; }
+    h2 { font-size: 16px; margin: 18px 0 8px; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(t('shopName'))}</h1>
+  <div class="sub">${escapeHtml(t('monthlyReport'))} — ${escapeHtml(monthLabel)}</div>
+  <div class="stats">
+    <div class="stat">${escapeHtml(t('reportOrderCount'))}<b>${report.orderCount}</b></div>
+    <div class="stat">${escapeHtml(t('reportCustomers'))}<b>${report.customerCount}</b></div>
+    <div class="stat">${escapeHtml(t('reportTotal'))}<b>${formatMoney(report.totalAmount)} ${currency}</b></div>
+    <div class="stat">${escapeHtml(t('reportCollected'))}<b>${formatMoney(report.collected)} ${currency}</b></div>
+    <div class="stat">${escapeHtml(t('reportRemaining'))}<b>${formatMoney(report.remainingAmount)} ${currency}</b></div>
+    <div class="stat">${escapeHtml(t('reportTopProduct'))}<b>${escapeHtml(report.topProducts[0]?.name || t('reportNoProducts'))}</b></div>
+  </div>
+  <h2>${escapeHtml(t('reportTopProducts'))}</h2>
+  <table>
+    <thead><tr><th>#</th><th>${escapeHtml(t('productName'))}</th><th>${escapeHtml(t('quantity'))}</th><th>${escapeHtml(t('itemTotal'))}</th></tr></thead>
+    <tbody>${topRows}</tbody>
+  </table>
+  <h2>${escapeHtml(t('reportOrders'))}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>${escapeHtml(t('customerLastName'))}</th>
+        <th>${escapeHtml(t('customerPhone'))}</th>
+        <th>${escapeHtml(t('orderDate'))}</th>
+        <th>${escapeHtml(t('totalAmount'))}</th>
+        <th>${escapeHtml(t('deposit'))}</th>
+        <th>${escapeHtml(t('remainingAmount'))}</th>
+      </tr>
+    </thead>
+    <tbody>${orderRows}</tbody>
+  </table>
+  <script>window.onload = function () { window.print(); }<\/script>
+</body>
+</html>`
+
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1000')
+    if (!w) {
+      alert(t('printBlocked'))
+      return
+    }
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
   }
 
   function statusLabel(status, t) {
@@ -697,6 +1005,7 @@
       loadSmsSettings,
       saveSmsSettings,
       sendSms: sendSmsApi,
+      trySendOrderSms,
       requestBackup
     },
     file: {
@@ -725,7 +1034,9 @@
       removeItem,
       validateFinalOrder,
       ORDER_STATUSES,
-      statusLabel
+      statusLabel,
+      buildMonthlyReport,
+      monthKeyFromDate
     },
     ui: {
       $,
@@ -735,8 +1046,10 @@
       readFileAsDataUrl,
       initI18n,
       setupSidebar,
+      setupGlobalSearch,
       bindLanguageControls,
-      printReceipt
+      printReceipt,
+      printMonthlyReport
     },
     theme: {
       init: initTheme,

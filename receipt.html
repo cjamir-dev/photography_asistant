@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="pageReceipt">Receipt</title>
     <script>
-      (function() {
-        const savedTheme = localStorage.getItem('theme') || 'light'
-        const savedLanguage = localStorage.getItem('language') || 'en'
-        document.documentElement.setAttribute('data-theme', savedTheme)
-        document.documentElement.setAttribute('lang', savedLanguage === 'fa' ? 'fa' : 'en')
-        document.documentElement.setAttribute('dir', savedLanguage === 'fa' ? 'rtl' : 'ltr')
+      (function () {
+        try {
+          var theme = localStorage.getItem('theme')
+          if (theme === 'dark' || theme === 'light') {
+            document.documentElement.setAttribute('data-theme', theme)
+          }
+          var lang = localStorage.getItem('app_lang') === 'en' ? 'en' : 'fa'
+          document.documentElement.setAttribute('lang', lang)
+          document.documentElement.setAttribute('dir', lang === 'fa' ? 'rtl' : 'ltr')
+        } catch (e) {}
       })()
     </script>
     <link rel="stylesheet" href="./assets/style.css" />

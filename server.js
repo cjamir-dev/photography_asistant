@@ -4,6 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 const { URL } = require('url')
+const bcrypt = require('bcryptjs')
 
 const PORT = Number(process.env.PORT) || 3000
 const DATA_DIR = path.join(__dirname, 'data')
@@ -44,11 +45,57 @@ function hashPassword(password, salt) {
 }
 
 function verifyPassword(password, salt, hash) {
-  const next = crypto.scryptSync(String(password), salt, 64).toString('hex')
-  const a = Buffer.from(next, 'hex')
-  const b = Buffer.from(hash, 'hex')
-  if (a.length !== b.length) return false
-  return crypto.timingSafeEqual(a, b)
+  if (!salt || !hash) return false
+  try {
+    const next = crypto.scryptSync(String(password), String(salt), 64).toString('hex')
+    const a = Buffer.from(next, 'hex')
+    const b = Buffer.from(String(hash), 'hex')
+    if (a.length !== b.length) return false
+    return crypto.timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
+
+function isModernAuth(auth) {
+  return Boolean(auth && auth.username && auth.salt && auth.hash)
+}
+
+function isLegacyAuth(auth) {
+  return Boolean(auth && auth.username && auth.passwordHash && !isModernAuth(auth))
+}
+
+async function verifyAuthPassword(auth, password) {
+  if (!auth || !password) return false
+  if (isModernAuth(auth)) {
+    return verifyPassword(password, auth.salt, auth.hash)
+  }
+  if (!auth.passwordHash) return false
+  const legacy = String(auth.passwordHash)
+  if (legacy.startsWith('$2')) {
+    try {
+      return await bcrypt.compare(String(password), legacy)
+    } catch {
+      return false
+    }
+  }
+  if (legacy.length === 64 && /^[a-f0-9]+$/i.test(legacy)) {
+    const sha = crypto.createHash('sha256').update(String(password)).digest('hex')
+    return sha === legacy.toLowerCase()
+  }
+  return false
+}
+
+function migrateAuthToModern(auth, password) {
+  const { salt, hash } = hashPassword(password)
+  return {
+    username: String(auth.username || 'admin').trim() || 'admin',
+    salt,
+    hash,
+    mustChangePassword: Boolean(auth.mustChangePassword),
+    createdAt: auth.createdAt || nowIso(),
+    updatedAt: nowIso()
+  }
 }
 
 function atomicWriteSync(filePath, content) {
@@ -95,7 +142,11 @@ async function writeJsonLocked(filePath, data) {
 }
 
 function ensureAuth() {
-  if (fs.existsSync(AUTH_FILE)) return readJson(AUTH_FILE, null)
+  if (fs.existsSync(AUTH_FILE)) {
+    const auth = readJson(AUTH_FILE, null)
+    if (isModernAuth(auth) || isLegacyAuth(auth)) return auth
+    console.warn('[AUTH] Invalid auth.json structure; recreating default admin user')
+  }
   const { salt, hash } = hashPassword('admin')
   const auth = {
     username: 'admin',
@@ -110,18 +161,82 @@ function ensureAuth() {
   return auth
 }
 
-function ensureSmsSettings() {
-  if (fs.existsSync(SMS_FILE)) return
-  const defaults = {
+const DEFAULT_SMS_TEMPLATES = {
+  create: '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان',
+  settle: '{lastName} عزیز، پرداخت شما ثبت شد. جمع پرداختی: {deposit} تومان، مانده: {remainingAmount} تومان',
+  ready: '{lastName} عزیز، سفارش شما آماده تحویل است.'
+}
+
+function defaultSmsSettings() {
+  return {
     apiType: 'payamak-vip',
     username: '',
     password: '',
     fromNumber: '',
-    messageTemplate: '{lastName} عزیز، سفارش شما به مبلغ {totalAmount} تومان ثبت شد. بیعانه: {deposit} تومان، مانده: {remainingAmount} تومان',
+    messageTemplate: DEFAULT_SMS_TEMPLATES.create,
+    templates: { ...DEFAULT_SMS_TEMPLATES },
     enabled: false,
+    enabledOnCreate: true,
+    enabledOnSettle: false,
+    enabledOnReady: false,
     updatedAt: nowIso()
   }
-  atomicWriteSync(SMS_FILE, JSON.stringify(defaults, null, 2))
+}
+
+function normalizeSmsSettings(raw) {
+  const base = defaultSmsSettings()
+  const settings = raw && typeof raw === 'object' ? raw : {}
+  const createTpl = String(
+    settings.templates?.create || settings.messageTemplate || base.templates.create
+  )
+  return {
+    apiType: settings.apiType || base.apiType,
+    username: settings.username || '',
+    password: settings.password || '',
+    fromNumber: settings.fromNumber || '',
+    messageTemplate: createTpl,
+    templates: {
+      create: createTpl,
+      settle: String(settings.templates?.settle || base.templates.settle),
+      ready: String(settings.templates?.ready || base.templates.ready)
+    },
+    enabled: Boolean(settings.enabled),
+    enabledOnCreate: settings.enabledOnCreate !== undefined
+      ? Boolean(settings.enabledOnCreate)
+      : true,
+    enabledOnSettle: Boolean(settings.enabledOnSettle),
+    enabledOnReady: Boolean(settings.enabledOnReady),
+    updatedAt: settings.updatedAt || nowIso()
+  }
+}
+
+function ensureSmsSettings() {
+  if (!fs.existsSync(SMS_FILE)) {
+    atomicWriteSync(SMS_FILE, JSON.stringify(defaultSmsSettings(), null, 2))
+    return
+  }
+  const raw = readJson(SMS_FILE, {})
+  if (!raw.templates || typeof raw.templates !== 'object') {
+    atomicWriteSync(SMS_FILE, JSON.stringify(normalizeSmsSettings(raw), null, 2))
+  }
+}
+
+function applySmsTemplate(template, order) {
+  const lastName = order?.customer?.lastName || ''
+  const phone = order?.customer?.phone || ''
+  const totalAmount = String(order?.totalAmount ?? '')
+  const deposit = String(order?.deposit ?? '')
+  const remainingAmount = String(order?.remainingAmount ?? '')
+  const status = String(order?.status || '')
+  return String(template || '')
+    .replace(/\{lastName\}/g, lastName)
+    .replace(/\{name\}/g, lastName)
+    .replace(/\{phone\}/g, phone)
+    .replace(/\{totalAmount\}/g, totalAmount)
+    .replace(/\{deposit\}/g, deposit)
+    .replace(/\{remainingAmount\}/g, remainingAmount)
+    .replace(/\{remain\}/g, remainingAmount)
+    .replace(/\{status\}/g, status)
 }
 
 function runStartupBackup() {
@@ -435,9 +550,15 @@ const server = http.createServer(async (req, res) => {
         const body = await readJsonBody(req)
         const username = String(body.username || '').trim()
         const password = String(body.password || '')
-        const auth = ensureAuth()
-        if (username !== auth.username || !verifyPassword(password, auth.salt, auth.hash)) {
+        let auth = ensureAuth()
+        const passwordOk = username === auth.username && await verifyAuthPassword(auth, password)
+        if (!passwordOk) {
           return sendError(res, 'invalid_credentials', 401)
+        }
+        if (isLegacyAuth(auth)) {
+          auth = migrateAuthToModern(auth, password)
+          await writeJsonLocked(AUTH_FILE, auth)
+          console.log('[AUTH] Migrated legacy passwordHash to scrypt salt/hash')
         }
         const token = createSession(username)
         setSessionCookie(res, token)
@@ -462,15 +583,16 @@ const server = http.createServer(async (req, res) => {
         const newPassword = String(body.newPassword || '')
         if (newPassword.length < 4) return sendError(res, 'password_too_short')
         const auth = ensureAuth()
-        if (!verifyPassword(currentPassword, auth.salt, auth.hash)) {
+        if (!(await verifyAuthPassword(auth, currentPassword))) {
           return sendError(res, 'wrong_password', 400)
         }
         const { salt, hash } = hashPassword(newPassword)
         const next = {
-          ...auth,
+          username: auth.username,
           salt,
           hash,
           mustChangePassword: false,
+          createdAt: auth.createdAt || nowIso(),
           updatedAt: nowIso()
         }
         await writeJsonLocked(AUTH_FILE, next)
@@ -478,33 +600,58 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (pathname === '/api/sms-settings' && method === 'GET') {
-        const settings = readJson(SMS_FILE, {})
+        const settings = normalizeSmsSettings(readJson(SMS_FILE, {}))
         return sendJson(res, {
-          apiType: settings.apiType || 'payamak-vip',
-          username: settings.username || '',
+          apiType: settings.apiType,
+          username: settings.username,
           passwordSet: Boolean(settings.password),
-          fromNumber: settings.fromNumber || '',
-          messageTemplate: settings.messageTemplate || '',
-          enabled: Boolean(settings.enabled)
+          fromNumber: settings.fromNumber,
+          messageTemplate: settings.templates.create,
+          templates: settings.templates,
+          enabled: settings.enabled,
+          enabledOnCreate: settings.enabledOnCreate,
+          enabledOnSettle: settings.enabledOnSettle,
+          enabledOnReady: settings.enabledOnReady
         })
       }
 
       if (pathname === '/api/sms-settings' && method === 'POST') {
         const body = await readJsonBody(req)
-        const current = readJson(SMS_FILE, {})
-        const next = {
-          apiType: body.apiType || current.apiType || 'payamak-vip',
-          username: body.username !== undefined ? String(body.username) : (current.username || ''),
+        const current = normalizeSmsSettings(readJson(SMS_FILE, {}))
+        const createTpl = body.templates?.create !== undefined
+          ? String(body.templates.create)
+          : (body.messageTemplate !== undefined
+            ? String(body.messageTemplate)
+            : current.templates.create)
+        const next = normalizeSmsSettings({
+          apiType: body.apiType || current.apiType,
+          username: body.username !== undefined ? String(body.username) : current.username,
           password: body.password !== undefined && body.password !== ''
             ? String(body.password)
-            : (current.password || ''),
-          fromNumber: body.fromNumber !== undefined ? String(body.fromNumber) : (current.fromNumber || ''),
-          messageTemplate: body.messageTemplate !== undefined
-            ? String(body.messageTemplate)
-            : (current.messageTemplate || ''),
-          enabled: body.enabled !== undefined ? Boolean(body.enabled) : Boolean(current.enabled),
+            : current.password,
+          fromNumber: body.fromNumber !== undefined ? String(body.fromNumber) : current.fromNumber,
+          messageTemplate: createTpl,
+          templates: {
+            create: createTpl,
+            settle: body.templates?.settle !== undefined
+              ? String(body.templates.settle)
+              : current.templates.settle,
+            ready: body.templates?.ready !== undefined
+              ? String(body.templates.ready)
+              : current.templates.ready
+          },
+          enabled: body.enabled !== undefined ? Boolean(body.enabled) : current.enabled,
+          enabledOnCreate: body.enabledOnCreate !== undefined
+            ? Boolean(body.enabledOnCreate)
+            : current.enabledOnCreate,
+          enabledOnSettle: body.enabledOnSettle !== undefined
+            ? Boolean(body.enabledOnSettle)
+            : current.enabledOnSettle,
+          enabledOnReady: body.enabledOnReady !== undefined
+            ? Boolean(body.enabledOnReady)
+            : current.enabledOnReady,
           updatedAt: nowIso()
-        }
+        })
         await writeJsonLocked(SMS_FILE, next)
         return sendJson(res, { success: true })
       }
@@ -718,9 +865,12 @@ const server = http.createServer(async (req, res) => {
 
       if (pathname === '/api/send-sms' && method === 'POST') {
         const body = await readJsonBody(req)
-        const settings = readJson(SMS_FILE, {})
+        const settings = normalizeSmsSettings(readJson(SMS_FILE, {}))
         const toNumbers = String(body.toNumbers || '').trim()
         let messageContent = String(body.messageContent || '').trim()
+        const templateType = ['create', 'settle', 'ready'].includes(body.templateType)
+          ? body.templateType
+          : 'create'
 
         if (!settings.enabled) return sendError(res, 'sms_disabled')
         if (!settings.username || !settings.password || !settings.fromNumber) {
@@ -729,13 +879,8 @@ const server = http.createServer(async (req, res) => {
         if (!toNumbers) return sendError(res, 'sms_recipient_required')
 
         if (!messageContent && body.order) {
-          const tpl = settings.messageTemplate || ''
-          const order = body.order
-          messageContent = tpl
-            .replace(/{lastName}/g, order.customer?.lastName || '')
-            .replace(/{totalAmount}/g, String(order.totalAmount || 0))
-            .replace(/{deposit}/g, String(order.deposit || 0))
-            .replace(/{remainingAmount}/g, String(order.remainingAmount || 0))
+          const tpl = settings.templates[templateType] || settings.templates.create || ''
+          messageContent = applySmsTemplate(tpl, body.order)
         }
         if (!messageContent) return sendError(res, 'sms_empty')
 

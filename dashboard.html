@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="pageDashboard">Dashboard</title>
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('theme')
+          if (theme === 'dark' || theme === 'light') {
+            document.documentElement.setAttribute('data-theme', theme)
+          }
+          var lang = localStorage.getItem('app_lang') === 'en' ? 'en' : 'fa'
+          document.documentElement.setAttribute('lang', lang)
+          document.documentElement.setAttribute('dir', lang === 'fa' ? 'rtl' : 'ltr')
+        } catch (e) {}
+      })()
+    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -188,6 +201,49 @@
                 <div class="stat-value" id="statRemainingAmount">0</div>
                 <div class="stat-label" data-i18n="statRemainingAmount"></div>
               </div>
+            </div>
+          </div>
+
+          <div class="card report-card">
+            <div class="split report-header">
+              <h2 data-i18n="monthlyReport"></h2>
+              <div class="report-controls">
+                <label class="visually-hidden" for="reportMonth" data-i18n="reportMonth"></label>
+                <input type="month" id="reportMonth" class="report-month-input" />
+                <button class="btn" type="button" id="reportRefreshBtn" data-i18n="reportRefresh"></button>
+                <button class="btn primary" type="button" id="reportPrintBtn" data-i18n="reportPrint"></button>
+              </div>
+            </div>
+            <p class="help" data-i18n="monthlyReportHelp"></p>
+            <div class="report-stats" id="reportStats">
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportOrderCount"></span>
+                <strong id="reportOrderCount">0</strong>
+              </div>
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportCustomers"></span>
+                <strong id="reportCustomers">0</strong>
+              </div>
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportTotal"></span>
+                <strong id="reportTotal" class="is-money">0</strong>
+              </div>
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportCollected"></span>
+                <strong id="reportCollected" class="is-money">0</strong>
+              </div>
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportRemaining"></span>
+                <strong id="reportRemaining" class="is-money">0</strong>
+              </div>
+              <div class="report-stat">
+                <span class="report-stat-label" data-i18n="reportTopProduct"></span>
+                <strong id="reportTopProduct">—</strong>
+              </div>
+            </div>
+            <div class="mt-md">
+              <h3 data-i18n="reportTopProducts"></h3>
+              <div class="list mt-sm" id="reportTopProductsList"></div>
             </div>
           </div>
 

@@ -4,8 +4,7 @@ const {
   loadOrders,
   createOrder,
   addPayment,
-  sendSms,
-  loadSmsSettings
+  trySendOrderSms
 } = storage
 const {
   createOrderDraft,
@@ -366,28 +365,6 @@ function clearDraftKeepSearch() {
   renderCart()
 }
 
-async function trySendSms(order) {
-  try {
-    const settings = await loadSmsSettings()
-    if (!settings.enabled) return { ok: false, skipped: true }
-    if (!settings.username || !settings.passwordSet || !settings.fromNumber) {
-      return { ok: false, skipped: true, error: t('smsNotConfigured') }
-    }
-    await sendSms({
-      toNumbers: order.customer?.phone || '',
-      order: {
-        customer: order.customer,
-        totalAmount: formatMoney(order.totalAmount || 0),
-        deposit: formatMoney(order.deposit || 0),
-        remainingAmount: formatMoney(order.remainingAmount || 0)
-      }
-    })
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e.message || t('smsError') }
-  }
-}
-
 async function finalizeOrder() {
   showFinalError('')
   showFinalOk('')
@@ -406,7 +383,7 @@ async function finalizeOrder() {
     showFinalOk(t('orderSaved'))
     if (els.printLastBtn) els.printLastBtn.disabled = false
 
-    const smsResult = await trySendSms(saved)
+    const smsResult = await trySendOrderSms(saved, 'create')
     if (smsResult.ok) {
       showFinalOk(`${t('orderSaved')} — ${t('smsSent')}`)
     } else if (!smsResult.skipped) {

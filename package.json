@@ -6,8 +6,13 @@
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": ["photography", "orders"],
+  "keywords": [
+    "photography",
+    "orders"
+  ],
   "author": "",
   "license": "ISC",
-  "dependencies": {}
+  "dependencies": {
+    "bcryptjs": "^3.0.3"
+  }
 }

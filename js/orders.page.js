@@ -5,7 +5,8 @@ const {
   updateOrder,
   patchOrder,
   deleteOrder,
-  addPayment
+  addPayment,
+  trySendOrderSms
 } = storage
 const {
   formatMoney,
@@ -234,7 +235,17 @@ async function onListClick(e) {
   const statusSelect = e.target?.closest('select[data-action="status"]')
   if (statusSelect && e.type === 'change') {
     try {
-      await patchOrder(id, { status: statusSelect.value })
+      const prevStatus = order.status
+      const nextStatus = statusSelect.value
+      const updated = await patchOrder(id, { status: nextStatus })
+      if (nextStatus === 'ready' && prevStatus !== 'ready') {
+        const smsResult = await trySendOrderSms(updated || { ...order, status: nextStatus }, 'ready')
+        if (smsResult.ok) {
+          // silent success
+        } else if (!smsResult.skipped && smsResult.error) {
+          alert(`${t('smsWarning')}: ${smsResult.error}`)
+        }
+      }
       await refresh()
     } catch (err) {
       alert(err.message)
@@ -264,7 +275,11 @@ async function onListClick(e) {
     }
     if (action === 'settle') {
       if (!confirm(t('confirmSettleAll'))) return
-      await addPayment(id, order.remainingAmount || 0, t('settlePayment'))
+      const updated = await addPayment(id, order.remainingAmount || 0, t('settlePayment'))
+      const smsResult = await trySendOrderSms(updated || order, 'settle')
+      if (!smsResult.ok && !smsResult.skipped && smsResult.error) {
+        alert(`${t('smsWarning')}: ${smsResult.error}`)
+      }
       await refresh()
       return
     }
@@ -276,7 +291,11 @@ async function onListClick(e) {
         alert(t('errorPaymentAmount'))
         return
       }
-      await addPayment(id, amount, t('partialPayment'))
+      const updated = await addPayment(id, amount, t('partialPayment'))
+      const smsResult = await trySendOrderSms(updated || order, 'settle')
+      if (!smsResult.ok && !smsResult.skipped && smsResult.error) {
+        alert(`${t('smsWarning')}: ${smsResult.error}`)
+      }
       await refresh()
     }
   } catch (err) {

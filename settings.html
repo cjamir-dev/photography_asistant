@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-i18n="pageSettings">Settings</title>
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('theme')
+          if (theme === 'dark' || theme === 'light') {
+            document.documentElement.setAttribute('data-theme', theme)
+          }
+          var lang = localStorage.getItem('app_lang') === 'en' ? 'en' : 'fa'
+          document.documentElement.setAttribute('lang', lang)
+          document.documentElement.setAttribute('dir', lang === 'fa' ? 'rtl' : 'ltr')
+        } catch (e) {}
+      })()
+    </script>
     <link rel="stylesheet" href="./assets/style.css" />
   </head>
   <body>
@@ -169,10 +182,24 @@
             
             <div class="settings-section">
               <label class="settings-label">
-                <span data-i18n="smsMessageTemplate"></span>
-                <textarea id="smsMessageTemplate" rows="4" data-i18n-placeholder="smsDefaultTemplate"></textarea>
+                <span data-i18n="smsTemplateCreate"></span>
+                <textarea id="smsTemplateCreate" rows="3" data-i18n-placeholder="smsDefaultTemplateCreate"></textarea>
               </label>
               <p class="help" data-i18n="smsMessageTemplateHelp"></p>
+            </div>
+
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="smsTemplateSettle"></span>
+                <textarea id="smsTemplateSettle" rows="3" data-i18n-placeholder="smsDefaultTemplateSettle"></textarea>
+              </label>
+            </div>
+
+            <div class="settings-section">
+              <label class="settings-label">
+                <span data-i18n="smsTemplateReady"></span>
+                <textarea id="smsTemplateReady" rows="3" data-i18n-placeholder="smsDefaultTemplateReady"></textarea>
+              </label>
             </div>
             
             <div class="settings-section">
@@ -181,6 +208,21 @@
                 <span data-i18n="smsEnabled"></span>
               </label>
               <p class="help" data-i18n="smsEnabledHelp"></p>
+            </div>
+
+            <div class="settings-section sms-event-flags">
+              <label class="settings-label" style="flex-direction: row; align-items: center; gap: 12px;">
+                <input type="checkbox" id="smsEnabledOnCreate" style="width: auto; min-width: auto;" />
+                <span data-i18n="smsEnabledOnCreate"></span>
+              </label>
+              <label class="settings-label" style="flex-direction: row; align-items: center; gap: 12px;">
+                <input type="checkbox" id="smsEnabledOnSettle" style="width: auto; min-width: auto;" />
+                <span data-i18n="smsEnabledOnSettle"></span>
+              </label>
+              <label class="settings-label" style="flex-direction: row; align-items: center; gap: 12px;">
+                <input type="checkbox" id="smsEnabledOnReady" style="width: auto; min-width: auto;" />
+                <span data-i18n="smsEnabledOnReady"></span>
+              </label>
             </div>
 
             <div class="settings-section">
